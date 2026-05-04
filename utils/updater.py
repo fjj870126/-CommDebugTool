@@ -128,6 +128,8 @@ def install_update(local_path: str):
 
             if sys_plat == 'Darwin':
                 new_binary = os.path.join(extract_dir, 'CommDebugTool')
+                subprocess.run(['xattr', '-d', 'com.apple.quarantine', new_binary],
+                               capture_output=True)
             elif sys_plat == 'Windows':
                 new_binary = os.path.join(extract_dir, 'CommDebugTool.exe')
             else:
