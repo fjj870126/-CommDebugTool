@@ -143,7 +143,8 @@ def install_update(local_path: str):
                     if os.path.exists(target_app):
                         shutil.rmtree(target_app)
                     shutil.move(temp_target, target_app)
-                    os.system(f'open "{target_app}" &')
+                    binary = os.path.join(target_app, 'Contents', 'MacOS', 'CommDebugTool')
+                    subprocess.Popen([binary], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                     os.system(f'(sleep 5 && rm -rf "{extract_parent}") &')
                     sys.exit(0)
                 else:
