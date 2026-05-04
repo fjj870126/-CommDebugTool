@@ -117,33 +117,58 @@ def check_update(timeout: int = 5) -> dict:
 
 def _select_asset(assets: list) -> dict:
     sys_plat = platform.system()
-    plat_keywords = {'Darwin': 'macos', 'Windows': 'windows', 'Linux': 'linux'}
-    keyword = plat_keywords.get(sys_plat, '')
+    sys_machine = platform.machine().lower()
 
-    # 优先匹配包含本平台名称的 zip
-    if keyword:
-        for asset in assets:
-            name = asset['name'].lower()
-            if name.endswith('.zip') and keyword in name:
-                return asset
+    arch_map = {
+        'x86_64': ['x86_64', 'amd64'],
+        'amd64': ['x86_64', 'amd64'],
+        'arm64': ['arm64', 'aarch64'],
+        'aarch64': ['arm64', 'aarch64'],
+        'x86': ['x86', 'i386', 'i686'],
+        'i386': ['x86', 'i386', 'i686'],
+        'i686': ['x86', 'i386', 'i686'],
+    }
+    arch_names = arch_map.get(sys_machine, [sys_machine])
 
-    # 其次匹配包含本平台名称的安装包
+    plat_map = {'Darwin': 'macos', 'Windows': 'windows', 'Linux': 'linux'}
+    plat_name = plat_map.get(sys_plat, '')
+
+    def name_matches(name: str) -> bool:
+        name_lower = name.lower()
+        if not plat_name or plat_name not in name_lower:
+            return False
+        return any(a in name_lower for a in arch_names)
+
+    # 优先匹配本平台+本架构的 zip
     for asset in assets:
         name = asset['name'].lower()
+        if name.endswith('.zip') and name_matches(name):
+            return asset
+
+    # 其次匹配本平台+本架构的安装包
+    for asset in assets:
+        name = asset['name'].lower()
+        if not name_matches(name):
+            continue
         if sys_plat == 'Darwin' and name.endswith('.dmg'):
-            if not keyword or keyword in name:
-                return asset
+            return asset
         if sys_plat == 'Windows' and name.endswith('.exe'):
             return asset
         if sys_plat == 'Linux' and (name.endswith('.tar.gz') or name.endswith('.AppImage')):
-            if not keyword or keyword in name:
-                return asset
+            return asset
 
-    # 最后任意 zip
+    # 任意本平台的 zip
+    for asset in assets:
+        name = asset['name'].lower()
+        if name.endswith('.zip') and plat_name and plat_name in name:
+            return asset
+
+    # 任意 zip
     for asset in assets:
         name = asset['name'].lower()
         if name.endswith('.zip'):
             return asset
+
     return assets[0] if assets else None
 
 
