@@ -1,45 +1,22 @@
 # -*- mode: python ; coding: utf-8 -*-
-import sys
-import platform
-from pathlib import Path
 
-import PyInstaller.building.api
-
-block_cipher = None
 
 a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[
-        ('resources', 'resources'),
-    ],
-    hiddenimports=[
-        'comm.tcp_client',
-        'comm.tcp_server',
-        'comm.udp_comm',
-        'comm.serial_comm',
-        'comm.websocket_comm',
-        'comm.mqtt_comm',
-        'packet.checksum',
-        'packet.packet_builder',
-        'protocols',
-        'ui',
-        'utils',
-    ],
+    datas=[('resources', 'resources')],
+    hiddenimports=['comm.tcp_client', 'comm.tcp_server', 'comm.udp_comm', 'comm.serial_comm', 'comm.websocket_comm', 'comm.mqtt_comm', 'packet.checksum', 'packet.packet_builder', 'protocols', 'ui', 'utils'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
     excludes=[],
-    win_no_prefer_redirects=False,
-    win_private_assemblies=False,
-    cipher=block_cipher,
     noarchive=False,
+    optimize=0,
 )
+pyz = PYZ(a.pure)
 
-pyz = PyInstaller.building.api.PYZ(a.pure)
-
-exe = PyInstaller.building.api.EXE(
+exe = EXE(
     pyz,
     a.scripts,
     a.binaries,
@@ -58,4 +35,11 @@ exe = PyInstaller.building.api.EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon=['resources/app_icon.icns'],
+)
+app = BUNDLE(
+    exe,
+    name='CommDebugTool.app',
+    icon='resources/app_icon.icns',
+    bundle_identifier=None,
 )

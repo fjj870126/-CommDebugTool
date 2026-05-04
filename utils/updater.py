@@ -127,8 +127,10 @@ def install_update(local_path: str):
                 zf.extractall(extract_dir)
 
             if sys_plat == 'Darwin':
-                new_binary = os.path.join(extract_dir, 'CommDebugTool')
-                subprocess.run(['xattr', '-d', 'com.apple.quarantine', new_binary],
+                new_binary = os.path.join(extract_dir, 'CommDebugTool.app', 'Contents', 'MacOS', 'CommDebugTool')
+                if not os.path.exists(new_binary):
+                    new_binary = os.path.join(extract_dir, 'CommDebugTool')
+                subprocess.run(['xattr', '-dr', 'com.apple.quarantine', extract_dir],
                                capture_output=True)
                 subprocess.run(['codesign', '--force', '--deep', '--sign', '-', new_binary],
                                capture_output=True)
@@ -147,6 +149,9 @@ def install_update(local_path: str):
             if getattr(sys, 'frozen', False):
                 current = sys.executable
 
+            if sys_plat == 'Darwin' and '.app' in current:
+                current = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(current))), 'CommDebugTool.app')
+
             if os.path.exists(current):
                 import stat
                 backup = current + '.bak'
@@ -158,10 +163,14 @@ def install_update(local_path: str):
                 shutil.copy2(new_binary, current)
                 os.chmod(current, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
                 if sys_plat == 'Darwin':
-                    subprocess.run(['xattr', '-d', 'com.apple.quarantine', current],
+                    subprocess.run(['xattr', '-dr', 'com.apple.quarantine', current],
                                    capture_output=True)
-                    subprocess.run(['codesign', '--force', '--deep', '--sign', '-', current],
-                                   capture_output=True)
+                    if '.app' in current:
+                        subprocess.run(['codesign', '--force', '--deep', '--sign', '-', current],
+                                       capture_output=True)
+                    else:
+                        subprocess.run(['codesign', '--force', '--deep', '--sign', '-', current],
+                                       capture_output=True)
                 subprocess.Popen([current])
                 try:
                     os.remove(backup)
