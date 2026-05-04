@@ -149,9 +149,24 @@ def install_update(local_path: str):
 
             if os.path.exists(current):
                 import stat
-                os.chmod(current, stat.S_IWUSR | stat.S_IRUSR | stat.S_IXUSR)
+                backup = current + '.bak'
+                try:
+                    os.remove(backup)
+                except:
+                    pass
+                os.rename(current, backup)
                 shutil.copy2(new_binary, current)
+                os.chmod(current, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
+                if sys_plat == 'Darwin':
+                    subprocess.run(['xattr', '-d', 'com.apple.quarantine', current],
+                                   capture_output=True)
+                    subprocess.run(['codesign', '--force', '--deep', '--sign', '-', current],
+                                   capture_output=True)
                 subprocess.Popen([current])
+                try:
+                    os.remove(backup)
+                except:
+                    pass
                 sys.exit(0)
             else:
                 subprocess.Popen([new_binary])
