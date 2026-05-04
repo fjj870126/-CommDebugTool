@@ -1,3 +1,0 @@
-([('CommDebugTool',
-   '/Users/fengjingjing/Desktop/CommDebugTool/dist/macos-arm64/CommDebugTool',
-   'EXECUTABLE')],)
