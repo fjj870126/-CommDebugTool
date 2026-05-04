@@ -137,7 +137,7 @@ def _select_asset(assets: list) -> dict:
         name_lower = name.lower()
         if not plat_name or plat_name not in name_lower:
             return False
-        return any(a in name_lower for a in arch_names)
+        return True
 
     # 优先匹配本平台+本架构的 zip
     for asset in assets:
@@ -163,13 +163,7 @@ def _select_asset(assets: list) -> dict:
         if name.endswith('.zip') and plat_name and plat_name in name:
             return asset
 
-    # 任意 zip（最后兜底）
-    for asset in assets:
-        name = asset['name'].lower()
-        if name.endswith('.zip'):
-            return asset
-
-    return assets[0] if assets else None
+    return None
 
 
 def download_update(asset: dict, progress_callback=None) -> str:
