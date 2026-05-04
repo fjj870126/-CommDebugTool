@@ -78,11 +78,11 @@ def _select_asset(assets: list) -> dict:
     sys_plat = platform.system()
     for asset in assets:
         name = asset['name'].lower()
-        if sys_plat == 'Darwin' and (name.endswith('.dmg') or name.endswith('.app.zip')):
+        if sys_plat == 'Darwin' and (name.endswith('.dmg') or name.endswith('.zip')):
             return asset
         if sys_plat == 'Windows' and (name.endswith('.exe') or name.endswith('.zip')):
             return asset
-        if sys_plat == 'Linux' and (name.endswith('.tar.gz') or name.endswith('.AppImage')):
+        if sys_plat == 'Linux' and (name.endswith('.tar.gz') or name.endswith('.zip') or name.endswith('.AppImage')):
             return asset
     return assets[0] if assets else None
 
@@ -113,21 +113,41 @@ def download_update(asset: dict, progress_callback=None) -> str:
 
 def install_update(local_path: str):
     """安装更新包并重启"""
+    import zipfile
+    import tempfile
+    import shutil
+
     sys_plat = platform.system()
     try:
-        if sys_plat == 'Darwin':
-            if local_path.endswith('.dmg'):
-                subprocess.Popen(['open', local_path])
-            elif local_path.endswith('.zip'):
-                subprocess.Popen(['open', local_path])
+        if local_path.endswith('.zip'):
+            extract_dir = os.path.join(tempfile.gettempdir(), 'commdebugtool_update')
+            if os.path.exists(extract_dir):
+                shutil.rmtree(extract_dir)
+            with zipfile.ZipFile(local_path, 'r') as zf:
+                zf.extractall(extract_dir)
+
+            if sys_plat == 'Darwin':
+                binary = os.path.join(extract_dir, 'CommDebugTool')
+            elif sys_plat == 'Windows':
+                binary = os.path.join(extract_dir, 'CommDebugTool.exe')
+            else:
+                binary = os.path.join(extract_dir, 'CommDebugTool')
+
+            if os.path.exists(binary):
+                os.chmod(binary, 0o755)
+                subprocess.Popen([binary])
+                sys.exit(0)
+            else:
+                subprocess.Popen(['open', extract_dir])
+        elif sys_plat == 'Darwin' and local_path.endswith('.dmg'):
+            subprocess.Popen(['open', local_path])
         elif sys_plat == 'Windows':
             subprocess.Popen([local_path], shell=True)
-        elif sys_plat == 'Linux':
-            if local_path.endswith('.AppImage'):
-                os.chmod(local_path, 0o755)
-                subprocess.Popen([local_path])
-    except Exception:
-        messagebox.showerror('安装失败', f'请手动打开文件安装:\n{local_path}')
+        elif sys_plat == 'Linux' and local_path.endswith('.AppImage'):
+            os.chmod(local_path, 0o755)
+            subprocess.Popen([local_path])
+    except Exception as e:
+        messagebox.showerror('安装失败', f'请手动解压安装:\n{local_path}\n\n错误: {e}')
     sys.exit(0)
 
 
