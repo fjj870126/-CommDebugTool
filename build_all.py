@@ -170,7 +170,12 @@ def main():
 
             zip_name = f'CommDebugTool-{APP_VERSION}-{plat}.zip'
             zip_path = os.path.join(ver_dir, zip_name)
-            create_zip(zip_path, app_tmp)
+            # 只打包 app_tmp 里面的内容，不包含 app_tmp 目录本身
+            app_contents = os.path.join(app_tmp, 'CommDebugTool.app')
+            if os.path.exists(app_contents):
+                create_zip(zip_path, app_contents)
+            else:
+                create_zip(zip_path, app_tmp)
             print(f'   生成: {zip_path}')
 
             shutil.rmtree(app_tmp)
