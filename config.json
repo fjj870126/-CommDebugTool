@@ -571,18 +571,6 @@
         }
       ],
       "auto_parse": true
-    },
-    "replay": {
-      "replay_mode": "选中回放",
-      "replay_interval": "200"
-    },
-    "heartbeat": {
-      "reply_enabled": false,
-      "match_hex": "AA 55 00 01 FE",
-      "reply_hex": "AA 55 80 01 7E",
-      "match_mode": "完全匹配",
-      "heartbeat_hex": "AA 55 00 01 FE",
-      "interval": "3000"
     }
   },
   "connections": [
@@ -624,5 +612,8 @@
   },
   "sash_ratio": 0.6291309669522643,
   "left_sash_ratio": 0.39331619537275064,
-  "mqtt": null
+  "mqtt": null,
+  "update": {
+    "ignored_versions": []
+  }
 }

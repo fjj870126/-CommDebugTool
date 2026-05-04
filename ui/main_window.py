@@ -27,7 +27,8 @@ from utils.context_menu import add_combobox_context_menu, add_entry_context_menu
 class MainWindow:
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title('通信调试工具 v1.0')
+        from utils.version import APP_VERSION, APP_NAME
+        self.root.title(f'{APP_NAME} v{APP_VERSION}')
         
         # 设置程序图标
         try:
@@ -972,7 +973,7 @@ class MainWindow:
 
     def _show_about(self):
         """显示关于对话框"""
-        from utils.version import APP_VERSION
+        from utils.version import APP_VERSION, APP_NAME
         messagebox.showinfo(
             '关于',
             f'{APP_NAME} v{APP_VERSION}\n\n'
