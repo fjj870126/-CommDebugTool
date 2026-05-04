@@ -124,14 +124,12 @@ def main():
     plat_dist = os.path.join('dist', plat)
 
     if platform.system() == 'Darwin':
-        # macOS: 打包 .app
-        app_path = os.path.join(plat_dist, 'CommDebugTool.app')
-        if os.path.exists(app_path):
+        binary_path = os.path.join(plat_dist, 'CommDebugTool')
+        if os.path.exists(binary_path):
             zip_name = f'CommDebugTool-{plat}.zip'
             zip_path = os.path.join('dist', zip_name)
-            create_zip(zip_path, app_path)
+            create_zip(zip_path, plat_dist)
             print(f'   生成: {zip_path}')
-            # 清理未压缩的文件夹
             shutil.rmtree(plat_dist)
     elif platform.system() == 'Windows':
         exe_path = os.path.join(plat_dist, 'CommDebugTool.exe')
