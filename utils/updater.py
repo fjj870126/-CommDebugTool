@@ -78,12 +78,25 @@ def check_update(timeout: int = 5) -> dict:
             latest_tag = tags[0]
             remote_ver = _parse_version(latest_tag)
             local_ver = _parse_version(APP_VERSION)
+            # 从页面提取附件文件名和下载链接
+            assets = []
+            dl_items = re.findall(r'/releases/download/v[\d.]+/[^"<>]+', html)
+            seen = set()
+            for path in dl_items:
+                name = path.rsplit('/', 1)[-1] if '/' in path else path
+                if name not in seen and not name.endswith('.zip') is False:
+                    seen.add(name)
+                    assets.append({'name': name, 'url': f'https://gitee.com{path}', 'size': 0})
+            # 过滤掉源码压缩包，只保留上传的附件
+            assets = [a for a in assets if not a['name'].startswith('v') or not (a['name'].endswith('.zip') or a['name'].endswith('.tar.gz'))]
+            # 保留上传的附件
+            assets = [a for a in assets if not (a['name'].startswith('v') and (a['name'].endswith('.zip') or a['name'].endswith('.tar.gz')))]
             return {
                 'has_update': remote_ver > local_ver,
                 'version': latest_tag.lstrip('v'),
                 'body': '',
                 'source': 'Gitee',
-                'assets': [],
+                'assets': assets,
             }
     except Exception:
         pass
