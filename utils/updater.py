@@ -312,6 +312,15 @@ def show_update_dialog(parent, info: dict, config_update: dict = None):
     ttk.Label(main_frame, text=f'当前版本: v{APP_VERSION}  →  新版本: v{info["version"]}  |  系统: {sys_info}',
               font=('', 9)).pack(anchor=tk.W, pady=(0, 6))
 
+    # 显示即将下载的包名
+    assets = info.get('assets', [])
+    from utils.updater import _select_asset as _sel
+    matched_asset = _sel(assets)
+    if matched_asset:
+        ttk.Label(main_frame,
+                  text=f'即将下载: {matched_asset["name"]}',
+                  font=('', 8), foreground='gray').pack(anchor=tk.W, pady=(0, 4))
+
     body_frame = ttk.LabelFrame(main_frame, text=' 更新内容 ', padding=6)
     body_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 8))
 
