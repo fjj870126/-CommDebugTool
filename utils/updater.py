@@ -143,9 +143,9 @@ def install_update(local_path: str):
                     if os.path.exists(target_app):
                         shutil.rmtree(target_app)
                     shutil.move(temp_target, target_app)
-                    subprocess.Popen(['open', target_app])
-                    import time
-                    time.sleep(2)
+                    os.system(f'open "{target_app}" &')
+                    os.system(f'(sleep 5 && rm -rf "{extract_parent}") &')
+                    sys.exit(0)
                 else:
                     new_binary = os.path.join(extract_dir, 'CommDebugTool')
                     if os.path.exists(new_binary):
