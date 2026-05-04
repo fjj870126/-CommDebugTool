@@ -125,13 +125,20 @@ def install_update(local_path: str):
                 app_path = os.path.join(extract_dir, 'CommDebugTool.app')
                 if os.path.exists(app_path):
                     target_app = '/Applications/CommDebugTool.app'
+                    # 先复制到临时位置，成功后再替换
+                    temp_target = target_app + '.new'
+                    if os.path.exists(temp_target):
+                        shutil.rmtree(temp_target)
+                    shutil.copytree(app_path, temp_target)
+                    # 签名
+                    subprocess.run(['xattr', '-dr', 'com.apple.quarantine', temp_target],
+                                   capture_output=True)
+                    subprocess.run(['codesign', '--force', '--deep', '--sign', '-', temp_target],
+                                   capture_output=True)
+                    # 替换旧文件
                     if os.path.exists(target_app):
                         shutil.rmtree(target_app)
-                    shutil.copytree(app_path, target_app)
-                    subprocess.run(['xattr', '-dr', 'com.apple.quarantine', target_app],
-                                   capture_output=True)
-                    subprocess.run(['codesign', '--force', '--deep', '--sign', '-', target_app],
-                                   capture_output=True)
+                    shutil.move(temp_target, target_app)
                     subprocess.Popen(['open', target_app])
                 else:
                     new_binary = os.path.join(extract_dir, 'CommDebugTool')
