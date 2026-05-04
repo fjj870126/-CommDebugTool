@@ -1,94 +1,628 @@
 {
   "comm": {
-    "protocol": "UDP",
+    "protocol": "TCP服务端",
     "ip": "192.168.2.113",
     "port": "8081",
     "local_port": "0",
-    "serial_port": "/dev/cu.HUAWEIFreeBudsPro4 - n/a",
+    "serial_port": "/dev/cu.HUAWEIFreeClip2 - n/a",
     "baudrate": "115200",
     "databits": "8",
     "parity": "N",
     "stopbits": "1"
   },
-  "heartbeat": {
-    "reply_enabled": false,
-    "match_hex": "AA 55 00 01 FE",
-    "reply_hex": "AA 55 80 01 7E",
-    "match_mode": "完全匹配",
-    "heartbeat_hex": "AA 55 00 01 FE",
-    "interval": "3000"
-  },
-  "send": {
-    "mode": "hex",
-    "input": "",
-    "interval": "1000",
-    "encoding": "UTF-8",
-    "newline": "无",
-    "prefix": "",
-    "suffix": "",
-    "line_delay": "0",
-    "history": []
-  },
-  "packet": {
-    "templates": {
-      "默认模板": {
-        "fields": [
-          {
-            "name": "帧头",
-            "hex_value": "AA55",
-            "byte_count": 2,
-            "field_type": "固定值",
-            "description": "协议起始标志"
-          },
-          {
-            "name": "命令字",
-            "hex_value": "01",
-            "byte_count": 1,
-            "field_type": "数据",
-            "description": "功能码"
-          },
-          {
-            "name": "数据长度",
-            "hex_value": "",
-            "byte_count": 1,
-            "field_type": "长度",
-            "description": "数据区长度",
-            "length_start": 3,
-            "length_end": 3,
-            "length_byte_order": "big"
-          },
-          {
-            "name": "数据",
-            "hex_value": "00",
-            "byte_count": 1,
-            "field_type": "数据",
-            "description": "业务数据"
-          },
-          {
-            "name": "CRC校验",
-            "hex_value": "",
-            "byte_count": 2,
-            "field_type": "校验",
-            "description": "CRC16/MODBUS 校验值",
-            "checksum_algorithm": "CRC16/MODBUS",
-            "checksum_start": 0,
-            "checksum_end": 3,
-            "checksum_byte_order": "little"
-          }
+  "tools": {
+    "_current_panel": "协议解析",
+    "send": {
+      "mode": "ascii",
+      "input": "11 22 33 44",
+      "interval": "1000",
+      "encoding": "UTF-8",
+      "newline": "无",
+      "prefix": "",
+      "suffix": "",
+      "line_delay": "0",
+      "history": [
+        [
+          "hex",
+          "11 22 33 44"
+        ],
+        [
+          "ascii",
+          "11 22 33 44"
         ]
-      }
+      ]
     },
-    "current_template_name": "默认模板",
-    "last_template_path": "",
-    "column_widths": {
-      "name": 100,
-      "hex": 140,
-      "bytes": 50,
-      "type": 60,
-      "desc": 160
+    "alert": {
+      "enabled": true,
+      "rules": []
+    },
+    "parse": {
+      "protocols": [
+        {
+          "fields": [
+            {
+              "name": "Header",
+              "hex_value": "BA",
+              "byte_count": 1,
+              "field_type": "固定值",
+              "description": "命令头"
+            },
+            {
+              "name": "Func",
+              "hex_value": "01",
+              "byte_count": 1,
+              "field_type": "数据",
+              "description": "功能码 0x01"
+            },
+            {
+              "name": "Sequence",
+              "hex_value": "0001",
+              "byte_count": 2,
+              "field_type": "数据",
+              "description": "流水号"
+            },
+            {
+              "name": "Box",
+              "hex_value": "01",
+              "byte_count": 1,
+              "field_type": "数据",
+              "description": "设备地址"
+            },
+            {
+              "name": "TotalLen",
+              "hex_value": "",
+              "byte_count": 2,
+              "field_type": "长度",
+              "description": "命令长度之和",
+              "length_start": 0,
+              "length_end": 3,
+              "length_byte_order": "big"
+            },
+            {
+              "name": "DeviceCode",
+              "hex_value": "01",
+              "byte_count": 1,
+              "field_type": "数据",
+              "description": "设备编码"
+            },
+            {
+              "name": "DeviceBox",
+              "hex_value": "01",
+              "byte_count": 1,
+              "field_type": "数据",
+              "description": "设备地址"
+            },
+            {
+              "name": "ControlDataLen",
+              "hex_value": "0009",
+              "byte_count": 2,
+              "field_type": "数据",
+              "description": "控制数据长度"
+            },
+            {
+              "name": "空调ID",
+              "hex_value": "01",
+              "byte_count": 1,
+              "field_type": "数据",
+              "description": "空调ID [1-255]"
+            },
+            {
+              "name": "开关",
+              "hex_value": "01",
+              "byte_count": 1,
+              "field_type": "数据",
+              "description": "0=关, 1=开, 255=默认",
+              "parse_mode": "枚举映射",
+              "enum_mappings": [
+                {
+                  "value": 0,
+                  "label": "关"
+                },
+                {
+                  "value": 1,
+                  "label": "开"
+                },
+                {
+                  "value": 255,
+                  "label": "默认"
+                }
+              ]
+            },
+            {
+              "name": "风速",
+              "hex_value": "64",
+              "byte_count": 1,
+              "field_type": "数据",
+              "description": "0=关, 1-100=档位, 104=自动, 255=默认"
+            },
+            {
+              "name": "模式",
+              "hex_value": "02",
+              "byte_count": 1,
+              "field_type": "数据",
+              "description": "0=关, 1=通风, 2=制冷, 3=制热, 5=除湿, 6=自动, 255=默认",
+              "parse_mode": "枚举映射",
+              "enum_mappings": [
+                {
+                  "value": 0,
+                  "label": "关"
+                },
+                {
+                  "value": 1,
+                  "label": "通风"
+                },
+                {
+                  "value": 2,
+                  "label": "制冷"
+                },
+                {
+                  "value": 3,
+                  "label": "制热"
+                },
+                {
+                  "value": 5,
+                  "label": "除湿"
+                },
+                {
+                  "value": 6,
+                  "label": "自动"
+                },
+                {
+                  "value": 255,
+                  "label": "默认"
+                }
+              ]
+            },
+            {
+              "name": "设置温度",
+              "hex_value": "00C8",
+              "byte_count": 2,
+              "field_type": "数据",
+              "description": "[-99°C,99°C] 精度0.1°C, bit15=符号, bit14-0=数值"
+            },
+            {
+              "name": "预留1",
+              "hex_value": "00",
+              "byte_count": 1,
+              "field_type": "数据",
+              "description": "预留"
+            },
+            {
+              "name": "预留2",
+              "hex_value": "00",
+              "byte_count": 1,
+              "field_type": "数据",
+              "description": "预留"
+            },
+            {
+              "name": "预留3",
+              "hex_value": "00",
+              "byte_count": 1,
+              "field_type": "数据",
+              "description": "预留"
+            },
+            {
+              "name": "CRC16",
+              "hex_value": "",
+              "byte_count": 2,
+              "field_type": "校验",
+              "description": "CRC16校验(高位在前)",
+              "checksum_algorithm": "CRC16/MODBUS",
+              "checksum_start": 0,
+              "checksum_end": 15,
+              "checksum_byte_order": "big"
+            }
+          ],
+          "protocol_name": "GRMS",
+          "command_name": "控制空调(发送)",
+          "enabled": true
+        },
+        {
+          "fields": [
+            {
+              "name": "Header",
+              "hex_value": "BA",
+              "byte_count": 1,
+              "field_type": "固定值",
+              "description": "命令头"
+            },
+            {
+              "name": "Func",
+              "hex_value": "02",
+              "byte_count": 1,
+              "field_type": "数据",
+              "description": "功能码 0x02"
+            },
+            {
+              "name": "Sequence",
+              "hex_value": "0001",
+              "byte_count": 2,
+              "field_type": "数据",
+              "description": "流水号"
+            },
+            {
+              "name": "Box",
+              "hex_value": "01",
+              "byte_count": 1,
+              "field_type": "数据",
+              "description": "设备地址"
+            },
+            {
+              "name": "TotalLen",
+              "hex_value": "",
+              "byte_count": 2,
+              "field_type": "长度",
+              "description": "命令长度之和",
+              "length_start": 0,
+              "length_end": 3,
+              "length_byte_order": "big"
+            },
+            {
+              "name": "DeviceCode",
+              "hex_value": "01",
+              "byte_count": 1,
+              "field_type": "数据",
+              "description": "设备编码"
+            },
+            {
+              "name": "DeviceBox",
+              "hex_value": "01",
+              "byte_count": 1,
+              "field_type": "数据",
+              "description": "设备地址"
+            },
+            {
+              "name": "Result",
+              "hex_value": "01",
+              "byte_count": 1,
+              "field_type": "数据",
+              "description": "0=失败, 1=成功",
+              "parse_mode": "枚举映射",
+              "enum_mappings": [
+                {
+                  "value": 0,
+                  "label": "失败"
+                },
+                {
+                  "value": 1,
+                  "label": "成功"
+                }
+              ]
+            },
+            {
+              "name": "CRC16",
+              "hex_value": "",
+              "byte_count": 2,
+              "field_type": "校验",
+              "description": "CRC16校验(高位在前)",
+              "checksum_algorithm": "CRC16/MODBUS",
+              "checksum_start": 0,
+              "checksum_end": 7,
+              "checksum_byte_order": "big"
+            }
+          ],
+          "protocol_name": "GRMS",
+          "command_name": "控制空调(回复)",
+          "enabled": true
+        },
+        {
+          "fields": [
+            {
+              "name": "Header",
+              "hex_value": "BA",
+              "byte_count": 1,
+              "field_type": "固定值",
+              "description": "命令头"
+            },
+            {
+              "name": "Func",
+              "hex_value": "03",
+              "byte_count": 1,
+              "field_type": "数据",
+              "description": "功能码 0x03"
+            },
+            {
+              "name": "Sequence",
+              "hex_value": "0001",
+              "byte_count": 2,
+              "field_type": "数据",
+              "description": "流水号"
+            },
+            {
+              "name": "Box",
+              "hex_value": "01",
+              "byte_count": 1,
+              "field_type": "数据",
+              "description": "设备地址"
+            },
+            {
+              "name": "TotalLen",
+              "hex_value": "",
+              "byte_count": 2,
+              "field_type": "长度",
+              "description": "命令长度之和",
+              "length_start": 0,
+              "length_end": 3,
+              "length_byte_order": "big"
+            },
+            {
+              "name": "DeviceCode",
+              "hex_value": "01",
+              "byte_count": 1,
+              "field_type": "数据",
+              "description": "设备编码"
+            },
+            {
+              "name": "DeviceBox",
+              "hex_value": "01",
+              "byte_count": 1,
+              "field_type": "数据",
+              "description": "设备地址"
+            },
+            {
+              "name": "RoomState",
+              "hex_value": "01",
+              "byte_count": 1,
+              "field_type": "数据",
+              "description": "0=待租, 1=已租, 2=预定",
+              "parse_mode": "枚举映射",
+              "enum_mappings": [
+                {
+                  "value": 0,
+                  "label": "待租"
+                },
+                {
+                  "value": 1,
+                  "label": "已租"
+                },
+                {
+                  "value": 2,
+                  "label": "预定"
+                }
+              ]
+            },
+            {
+              "name": "CRC16",
+              "hex_value": "",
+              "byte_count": 2,
+              "field_type": "校验",
+              "description": "CRC16校验(高位在前)",
+              "checksum_algorithm": "CRC16/MODBUS",
+              "checksum_start": 0,
+              "checksum_end": 7,
+              "checksum_byte_order": "big"
+            }
+          ],
+          "protocol_name": "GRMS",
+          "command_name": "控制房态(发送)",
+          "enabled": true
+        },
+        {
+          "fields": [
+            {
+              "name": "Header",
+              "hex_value": "BA",
+              "byte_count": 1,
+              "field_type": "固定值",
+              "description": "命令头"
+            },
+            {
+              "name": "Func",
+              "hex_value": "35",
+              "byte_count": 1,
+              "field_type": "数据",
+              "description": "功能码 0x35"
+            },
+            {
+              "name": "Sequence",
+              "hex_value": "0001",
+              "byte_count": 2,
+              "field_type": "数据",
+              "description": "流水号"
+            },
+            {
+              "name": "Box",
+              "hex_value": "01",
+              "byte_count": 1,
+              "field_type": "数据",
+              "description": "设备地址"
+            },
+            {
+              "name": "TotalLen",
+              "hex_value": "",
+              "byte_count": 2,
+              "field_type": "长度",
+              "description": "命令长度之和",
+              "length_start": 0,
+              "length_end": 3,
+              "length_byte_order": "big"
+            },
+            {
+              "name": "DeviceCode",
+              "hex_value": "01",
+              "byte_count": 1,
+              "field_type": "数据",
+              "description": "设备编码"
+            },
+            {
+              "name": "DeviceBox",
+              "hex_value": "01",
+              "byte_count": 1,
+              "field_type": "数据",
+              "description": "设备地址"
+            },
+            {
+              "name": "FirmwareLen",
+              "hex_value": "0010",
+              "byte_count": 2,
+              "field_type": "数据",
+              "description": "固件数据长度"
+            },
+            {
+              "name": "FirmwareData",
+              "hex_value": "00000000000000000000000000000000",
+              "byte_count": 16,
+              "field_type": "数据",
+              "description": "固件数据"
+            },
+            {
+              "name": "CRC16",
+              "hex_value": "",
+              "byte_count": 2,
+              "field_type": "校验",
+              "description": "CRC16校验(高位在前)",
+              "checksum_algorithm": "CRC16/MODBUS",
+              "checksum_start": 0,
+              "checksum_end": 8,
+              "checksum_byte_order": "big"
+            }
+          ],
+          "protocol_name": "GRMS",
+          "command_name": "固件升级(发送)",
+          "enabled": true
+        },
+        {
+          "fields": [
+            {
+              "name": "Header",
+              "hex_value": "BA",
+              "byte_count": 1,
+              "field_type": "固定值",
+              "description": "命令头"
+            },
+            {
+              "name": "Func",
+              "hex_value": "36",
+              "byte_count": 1,
+              "field_type": "数据",
+              "description": "功能码 0x36"
+            },
+            {
+              "name": "Sequence",
+              "hex_value": "0001",
+              "byte_count": 2,
+              "field_type": "数据",
+              "description": "流水号"
+            },
+            {
+              "name": "Box",
+              "hex_value": "01",
+              "byte_count": 1,
+              "field_type": "数据",
+              "description": "设备地址"
+            },
+            {
+              "name": "TotalLen",
+              "hex_value": "",
+              "byte_count": 2,
+              "field_type": "长度",
+              "description": "命令长度之和",
+              "length_start": 0,
+              "length_end": 3,
+              "length_byte_order": "big"
+            },
+            {
+              "name": "DeviceCode",
+              "hex_value": "01",
+              "byte_count": 1,
+              "field_type": "数据",
+              "description": "设备编码"
+            },
+            {
+              "name": "DeviceBox",
+              "hex_value": "01",
+              "byte_count": 1,
+              "field_type": "数据",
+              "description": "设备地址"
+            },
+            {
+              "name": "Result",
+              "hex_value": "01",
+              "byte_count": 1,
+              "field_type": "数据",
+              "description": "0=失败, 1=成功",
+              "parse_mode": "枚举映射",
+              "enum_mappings": [
+                {
+                  "value": 0,
+                  "label": "失败"
+                },
+                {
+                  "value": 1,
+                  "label": "成功"
+                }
+              ]
+            },
+            {
+              "name": "CRC16",
+              "hex_value": "",
+              "byte_count": 2,
+              "field_type": "校验",
+              "description": "CRC16校验(高位在前)",
+              "checksum_algorithm": "CRC16/MODBUS",
+              "checksum_start": 0,
+              "checksum_end": 7,
+              "checksum_byte_order": "big"
+            }
+          ],
+          "protocol_name": "GRMS",
+          "command_name": "固件升级(回复)",
+          "enabled": true
+        }
+      ],
+      "auto_parse": true
+    },
+    "replay": {
+      "replay_mode": "选中回放",
+      "replay_interval": "200"
+    },
+    "heartbeat": {
+      "reply_enabled": false,
+      "match_hex": "AA 55 00 01 FE",
+      "reply_hex": "AA 55 80 01 7E",
+      "match_mode": "完全匹配",
+      "heartbeat_hex": "AA 55 00 01 FE",
+      "interval": "3000"
     }
   },
+  "connections": [
+    {
+      "key": "192.168.2.113:8081",
+      "addr": "192.168.2.113:8081",
+      "tx": 0,
+      "rx": 0,
+      "status": "已断开",
+      "clients": {},
+      "switches": {},
+      "config": {
+        "protocol": "TCP服务端",
+        "host": "192.168.2.113",
+        "port": 8081
+      }
+    }
+  ],
+  "shortcuts": [],
+  "settings": {
+    "ui_theme": "dark",
+    "ttk_theme": "clam",
+    "font_family": "Courier New",
+    "font_size": 10,
+    "log_max_lines": 10000,
+    "auto_scroll": true,
+    "timestamp_format": "%H:%M:%S.%f",
+    "show_send_time": true,
+    "show_recv_time": true,
+    "hex_uppercase": true,
+    "hex_separator": " ",
+    "confirm_exit": true,
+    "save_log_on_exit": false,
+    "status_bar": true
+  },
   "window": {
-    "geometry": "1200x800+909+1009"
-  }
+    "width": 1646,
+    "height": 1198
+  },
+  "sash_ratio": 0.6291309669522643,
+  "left_sash_ratio": 0.39331619537275064,
+  "mqtt": null
 }

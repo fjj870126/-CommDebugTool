@@ -176,13 +176,23 @@ def show_update_dialog(parent, info: dict, config_update: dict = None):
 
     def on_download():
         nonlocal download_path
-        asset = _select_asset(info.get('assets', []))
+        assets = info.get('assets', [])
+        if not assets:
+            messagebox.showinfo('提示', '请前往 Gitee 发布页面手动下载安装包:\n'
+                                f'https://gitee.com/{OWNER}/{REPO}/releases',
+                                parent=dialog)
+            return
+        asset = _select_asset(assets)
         if not asset:
             messagebox.showwarning('提示', '没有找到适合当前平台的安装包', parent=dialog)
             return
 
         download_btn.configure(state=tk.DISABLED)
         cancel_btn.configure(state=tk.DISABLED)
+
+        progress_bar = ttk.Progressbar(btn_frame, mode='determinate')
+        progress_label = ttk.Label(btn_frame, text='0%', font=('', 9))
+        progress_label.pack(side=tk.RIGHT, padx=(4, 0))
         progress_bar.pack(fill=tk.X, pady=(4, 0))
 
         def update_progress(ratio):
@@ -211,10 +221,6 @@ def show_update_dialog(parent, info: dict, config_update: dict = None):
             download_btn.configure(state=tk.NORMAL)
             cancel_btn.configure(state=tk.NORMAL)
             progress_bar.pack_forget()
-
-        progress_bar = ttk.Progressbar(btn_frame, mode='determinate')
-        progress_label = ttk.Label(btn_frame, text='0%', font=('', 9))
-        progress_label.pack(side=tk.RIGHT, padx=(4, 0))
 
         threading.Thread(target=do_download, daemon=True).start()
 
