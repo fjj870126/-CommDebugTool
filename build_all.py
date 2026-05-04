@@ -47,12 +47,13 @@ def run_cmd(cmd, desc=None):
 
 
 def create_zip(output_path, source_dir):
-    root_len = len(os.path.dirname(os.path.abspath(source_dir))) + 1
+    base_name = os.path.basename(os.path.normpath(source_dir))
+    parent = os.path.dirname(os.path.normpath(source_dir))
     with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zf:
         for root, dirs, files in os.walk(source_dir):
             for f in files:
                 file_path = os.path.join(root, f)
-                arcname = file_path[root_len:]
+                arcname = os.path.relpath(file_path, parent)
                 zf.write(file_path, arcname)
 
 
@@ -121,11 +122,13 @@ def build_macos(dist_dir, build_dir, plat):
                    capture_output=True)
 
     ver_dir = os.path.join('dist', f'v{APP_VERSION}')
-    os.makedirs(ver_dir, exist_ok=True)
+    plat_dir_name = f'{plat}'
+    plat_dir_full = os.path.join(ver_dir, plat_dir_name)
+    os.makedirs(plat_dir_full, exist_ok=True)
 
     # 生成 DMG
     dmg_name = f'CommDebugTool-{APP_VERSION}-{plat}.dmg'
-    dmg_path = os.path.join(ver_dir, dmg_name)
+    dmg_path = os.path.join(plat_dir_full, dmg_name)
     subprocess.run([
         'hdiutil', 'create', '-volname', 'CommDebugTool',
         '-srcfolder', app_tmp,
@@ -135,7 +138,7 @@ def build_macos(dist_dir, build_dir, plat):
 
     # 生成 ZIP（OTA 更新用，只打包 .app）
     zip_name = f'CommDebugTool-{APP_VERSION}-{plat}.zip'
-    zip_path = os.path.join(ver_dir, zip_name)
+    zip_path = os.path.join(plat_dir_full, zip_name)
     app_contents = os.path.join(app_tmp, 'CommDebugTool.app')
     create_zip(zip_path, app_contents)
     print(f'   生成: {zip_path}')
@@ -143,6 +146,13 @@ def build_macos(dist_dir, build_dir, plat):
     shutil.rmtree(app_tmp)
     if os.path.exists(dist_dir):
         shutil.rmtree(dist_dir)
+
+    # 删除旧的平铺文件（兼容旧版输出）
+    for old in ['CommDebugTool-1.0.0-macos-arm64.zip', 'CommDebugTool-1.0.0-macos-arm64.dmg',
+                'CommDebugTool-1.0.1-macos-arm64.zip', 'CommDebugTool-1.0.1-macos-arm64.dmg']:
+        old_path = os.path.join(ver_dir, old)
+        if os.path.exists(old_path):
+            os.remove(old_path)
 
 
 def build_windows(dist_dir, build_dir, plat):
@@ -174,10 +184,12 @@ def build_windows(dist_dir, build_dir, plat):
         return
 
     ver_dir = os.path.join('dist', f'v{APP_VERSION}')
-    os.makedirs(ver_dir, exist_ok=True)
+    plat_dir_name = f'{plat}'
+    plat_dir_full = os.path.join(ver_dir, plat_dir_name)
+    os.makedirs(plat_dir_full, exist_ok=True)
 
     zip_name = f'CommDebugTool-{APP_VERSION}-{plat}.zip'
-    zip_path = os.path.join(ver_dir, zip_name)
+    zip_path = os.path.join(plat_dir_full, zip_name)
     create_zip(zip_path, dist_dir)
     print(f'   生成: {zip_path}')
 
@@ -214,10 +226,12 @@ def build_linux(dist_dir, build_dir, plat):
         return
 
     ver_dir = os.path.join('dist', f'v{APP_VERSION}')
-    os.makedirs(ver_dir, exist_ok=True)
+    plat_dir_name = f'{plat}'
+    plat_dir_full = os.path.join(ver_dir, plat_dir_name)
+    os.makedirs(plat_dir_full, exist_ok=True)
 
     tar_name = f'CommDebugTool-{APP_VERSION}-{plat}.tar.gz'
-    tar_path = os.path.join(ver_dir, tar_name)
+    tar_path = os.path.join(plat_dir_full, tar_name)
     with tarfile.open(tar_path, 'w:gz') as tf:
         tf.add(dist_dir, arcname='CommDebugTool')
     print(f'   生成: {tar_path}')
