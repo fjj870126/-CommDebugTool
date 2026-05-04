@@ -34,25 +34,20 @@ REPO = 'comm-debug-tool'
 
 
 def _parse_version(tag: str) -> tuple:
-    """将 v1.0.0 转换为 (1,0,0)"""
     nums = re.findall(r'\d+', tag)
     return tuple(int(n) for n in nums[:3]) if nums else (0, 0, 0)
 
 
 def check_update(timeout: int = 5) -> dict:
-    """检查更新，返回 { 'has_update': bool, 'version': str, 'body': str, 'source': str, 'assets': [] }
-    或 None（检查失败）"""
     for source in UPDATE_SOURCES:
         try:
             url = source['api_url'].format(owner=OWNER, repo=REPO)
             req = Request(url, headers={'User-Agent': 'CommDebugTool', 'Accept': 'application/json'})
             with urlopen(req, timeout=timeout) as resp:
                 data = json.loads(resp.read().decode('utf-8'))
-
             tag = data.get('tag_name', '')
             remote_ver = _parse_version(tag)
             local_ver = _parse_version(APP_VERSION)
-
             assets = []
             for asset in data.get('assets', []):
                 assets.append({
@@ -60,7 +55,6 @@ def check_update(timeout: int = 5) -> dict:
                     'url': asset.get('browser_download_url', ''),
                     'size': asset.get('size', 0),
                 })
-
             return {
                 'has_update': remote_ver > local_ver,
                 'version': tag.lstrip('v'),
@@ -74,9 +68,7 @@ def check_update(timeout: int = 5) -> dict:
 
 
 def _select_asset(assets: list) -> dict:
-    """根据当前平台选择合适的下载包"""
     sys_plat = platform.system()
-    # 优先选择 zip（OTA 更新用）
     for asset in assets:
         name = asset['name'].lower()
         if name.endswith('.zip'):
@@ -93,12 +85,10 @@ def _select_asset(assets: list) -> dict:
 
 
 def download_update(asset: dict, progress_callback=None) -> str:
-    """下载更新包到临时目录，返回本地路径"""
     import tempfile
     url = asset['url']
     name = asset['name']
     local_path = os.path.join(tempfile.gettempdir(), name)
-
     req = Request(url, headers={'User-Agent': 'CommDebugTool'})
     with urlopen(req, timeout=30) as resp:
         total = int(resp.headers.get('Content-Length', 0))
@@ -117,10 +107,8 @@ def download_update(asset: dict, progress_callback=None) -> str:
 
 
 def install_update(local_path: str):
-    """安装更新包并重启"""
     import zipfile
     import shutil
-    import subprocess
 
     sys_plat = platform.system()
     try:
@@ -136,7 +124,7 @@ def install_update(local_path: str):
             if sys_plat == 'Darwin':
                 app_path = os.path.join(extract_dir, 'CommDebugTool.app')
                 if os.path.exists(app_path):
-                    target_app = os.path.join('/Applications', 'CommDebugTool.app')
+                    target_app = '/Applications/CommDebugTool.app'
                     if os.path.exists(target_app):
                         shutil.rmtree(target_app)
                     shutil.copytree(app_path, target_app)
@@ -147,30 +135,34 @@ def install_update(local_path: str):
                     subprocess.Popen(['open', target_app])
                 else:
                     new_binary = os.path.join(extract_dir, 'CommDebugTool')
-                    subprocess.run(['xattr', '-d', 'com.apple.quarantine', new_binary],
-                                   capture_output=True)
-                    subprocess.run(['codesign', '--force', '--deep', '--sign', '-', new_binary],
-                                   capture_output=True)
-                    subprocess.Popen([new_binary])
+                    if os.path.exists(new_binary):
+                        os.chmod(new_binary, 0o755)
+                        subprocess.run(['xattr', '-d', 'com.apple.quarantine', new_binary],
+                                       capture_output=True)
+                        subprocess.run(['codesign', '--force', '--deep', '--sign', '-', new_binary],
+                                       capture_output=True)
+                        subprocess.Popen([new_binary])
+                    else:
+                        subprocess.Popen(['open', extract_dir])
                 subprocess.Popen(['bash', '-c',
                     f'sleep 5 && rm -rf {extract_parent}'],
                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 sys.exit(0)
             elif sys_plat == 'Windows':
                 new_binary = os.path.join(extract_dir, 'CommDebugTool.exe')
-                if not os.path.exists(new_binary):
+                if os.path.exists(new_binary):
+                    os.chmod(new_binary, 0o755)
+                    subprocess.Popen([new_binary])
+                else:
                     subprocess.Popen(['open', extract_dir])
-                    sys.exit(0)
-                os.chmod(new_binary, 0o755)
-                subprocess.Popen([new_binary])
                 sys.exit(0)
             else:
                 new_binary = os.path.join(extract_dir, 'CommDebugTool')
-                if not os.path.exists(new_binary):
+                if os.path.exists(new_binary):
+                    os.chmod(new_binary, 0o755)
+                    subprocess.Popen([new_binary])
+                else:
                     subprocess.Popen(['open', extract_dir])
-                    sys.exit(0)
-                os.chmod(new_binary, 0o755)
-                subprocess.Popen([new_binary])
                 sys.exit(0)
         elif sys_plat == 'Darwin' and local_path.endswith('.dmg'):
             subprocess.Popen(['open', local_path])
@@ -187,7 +179,6 @@ def install_update(local_path: str):
 # ===== UI 对话框 =====
 
 def show_update_dialog(parent, info: dict, config_update: dict = None):
-    """显示发现新版本对话框"""
     dialog = tk.Toplevel(parent)
     dialog.title('发现新版本')
     dialog.transient(parent)
@@ -279,7 +270,6 @@ def show_update_dialog(parent, info: dict, config_update: dict = None):
                 progress_win.destroy()
                 dialog.after(0, lambda: on_download_error(str(e)))
 
-
         def on_download_done(path):
             if messagebox.askyesno('确认', '下载完成，是否立即安装并重启？', parent=dialog):
                 install_update(path)
@@ -314,14 +304,10 @@ def show_update_dialog(parent, info: dict, config_update: dict = None):
 
 
 def show_no_update(parent):
-    """显示已是最新版对话框"""
     messagebox.showinfo('检查更新', f'当前已是最新版本 v{APP_VERSION}', parent=parent)
 
 
-# ===== 入口函数 =====
-
 def check_and_show(parent, config_update: dict):
-    """检查更新并显示结果（后台线程）"""
     def _do_check():
         try:
             info = check_update(timeout=5)
@@ -340,12 +326,10 @@ def check_and_show(parent, config_update: dict):
         except Exception:
             parent.after(0, lambda: messagebox.showwarning(
                 '检查更新失败', '检查更新时发生异常', parent=parent))
-
     threading.Thread(target=_do_check, daemon=True).start()
 
 
 def check_silent(parent, config_update: dict) -> bool:
-    """静默检查更新，有新版本返回 True（供启动时调用，由调用方处理弹窗）"""
     def _do_check():
         try:
             info = check_update(timeout=3)
@@ -355,6 +339,5 @@ def check_silent(parent, config_update: dict) -> bool:
                     parent.after(0, lambda: show_update_dialog(parent, info, config_update))
         except Exception:
             pass
-
     threading.Thread(target=_do_check, daemon=True).start()
     return True
