@@ -144,6 +144,8 @@ def install_update(local_path: str):
                         shutil.rmtree(target_app)
                     shutil.move(temp_target, target_app)
                     subprocess.Popen(['open', target_app])
+                    import time
+                    time.sleep(2)
                 else:
                     new_binary = os.path.join(extract_dir, 'CommDebugTool')
                     if os.path.exists(new_binary):
