@@ -116,7 +116,10 @@ def install_update(local_path: str):
             extract_parent = os.path.expanduser('~/.commdebugtool_update')
             extract_dir = os.path.join(extract_parent, 'app')
             if os.path.exists(extract_dir):
-                shutil.rmtree(extract_dir)
+                if os.path.isfile(extract_dir):
+                    os.remove(extract_dir)
+                else:
+                    shutil.rmtree(extract_dir)
             os.makedirs(extract_dir, exist_ok=True)
             with zipfile.ZipFile(local_path, 'r') as zf:
                 zf.extractall(extract_dir)
@@ -128,7 +131,10 @@ def install_update(local_path: str):
                     # 先复制到临时位置，成功后再替换
                     temp_target = target_app + '.new'
                     if os.path.exists(temp_target):
-                        shutil.rmtree(temp_target)
+                        if os.path.isfile(temp_target):
+                            os.remove(temp_target)
+                        else:
+                            shutil.rmtree(temp_target)
                     shutil.copytree(app_path, temp_target)
                     # 修复执行权限
                     binary = os.path.join(temp_target, 'Contents', 'MacOS', 'CommDebugTool')
