@@ -130,6 +130,8 @@ def install_update(local_path: str):
                 new_binary = os.path.join(extract_dir, 'CommDebugTool')
                 subprocess.run(['xattr', '-d', 'com.apple.quarantine', new_binary],
                                capture_output=True)
+                subprocess.run(['codesign', '--force', '--deep', '--sign', '-', new_binary],
+                               capture_output=True)
             elif sys_plat == 'Windows':
                 new_binary = os.path.join(extract_dir, 'CommDebugTool.exe')
             else:
