@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """
 CommDebugTool - 全平台打包脚本
+
+在当前平台运行即可打包当前平台的可执行文件。
+如需打包其他平台，请在对应平台上运行此脚本。
 """
 
 import subprocess
@@ -44,13 +47,183 @@ def run_cmd(cmd, desc=None):
 
 
 def create_zip(output_path, source_dir):
-    root_len = len(os.path.dirname(source_dir)) + 1
+    root_len = len(os.path.dirname(os.path.abspath(source_dir))) + 1
     with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zf:
         for root, dirs, files in os.walk(source_dir):
             for f in files:
                 file_path = os.path.join(root, f)
                 arcname = file_path[root_len:]
                 zf.write(file_path, arcname)
+
+
+def build_macos(dist_dir, build_dir, plat):
+    icon_path = 'resources/app_icon.icns'
+    icon_arg = ['--icon', icon_path] if os.path.exists(icon_path) else []
+
+    run_cmd(
+        [sys.executable, '-m', 'PyInstaller',
+         '--onefile', '--windowed',
+         '--name', 'CommDebugTool',
+         '--distpath', dist_dir,
+         '--workpath', build_dir,
+         '--add-data', f'resources{os.pathsep}resources',
+         '--hidden-import', 'comm.tcp_client',
+         '--hidden-import', 'comm.tcp_server',
+         '--hidden-import', 'comm.udp_comm',
+         '--hidden-import', 'comm.serial_comm',
+         '--hidden-import', 'comm.websocket_comm',
+         '--hidden-import', 'comm.mqtt_comm',
+         '--hidden-import', 'packet.checksum',
+         '--hidden-import', 'packet.packet_builder',
+         '--hidden-import', 'protocols',
+         '--hidden-import', 'ui',
+         '--hidden-import', 'utils',
+         ] + icon_arg + ['main.py'],
+        '打包可执行文件'
+    )
+
+    print(f'\n>> 压缩打包...')
+    binary_path = os.path.join(dist_dir, 'CommDebugTool')
+    if not os.path.exists(binary_path):
+        return
+
+    app_tmp = os.path.join('dist', '_app_tmp')
+    if os.path.exists(app_tmp):
+        shutil.rmtree(app_tmp)
+
+    # 创建 .app 结构
+    app_dir = os.path.join(app_tmp, 'CommDebugTool.app', 'Contents', 'MacOS')
+    os.makedirs(app_dir)
+    shutil.copy2(binary_path, os.path.join(app_dir, 'CommDebugTool'))
+    os.chmod(os.path.join(app_dir, 'CommDebugTool'), 0o755)
+
+    resources_dir = os.path.join(app_tmp, 'CommDebugTool.app', 'Contents', 'Resources')
+    os.makedirs(resources_dir)
+    if os.path.exists(icon_path):
+        shutil.copy2(icon_path, os.path.join(resources_dir, 'app_icon.icns'))
+
+    plist = '''<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleExecutable</key><string>CommDebugTool</string>
+<key>CFBundleIdentifier</key><string>com.commdebugtool.app</string>
+<key>CFBundleName</key><string>CommDebugTool</string>
+<key>CFBundleIconFile</key><string>app_icon.icns</string>
+<key>CFBundlePackageType</key><string>APPL</string>
+<key>LSUIElement</key><true/>
+</dict></plist>'''
+    info_dir = os.path.join(app_tmp, 'CommDebugTool.app', 'Contents')
+    with open(os.path.join(info_dir, 'Info.plist'), 'w') as f:
+        f.write(plist)
+
+    # 创建 /Applications 快捷方式
+    subprocess.run(['ln', '-s', '/Applications', os.path.join(app_tmp, 'Applications')],
+                   capture_output=True)
+
+    ver_dir = os.path.join('dist', f'v{APP_VERSION}')
+    os.makedirs(ver_dir, exist_ok=True)
+
+    # 生成 DMG
+    dmg_name = f'CommDebugTool-{APP_VERSION}-{plat}.dmg'
+    dmg_path = os.path.join(ver_dir, dmg_name)
+    subprocess.run([
+        'hdiutil', 'create', '-volname', 'CommDebugTool',
+        '-srcfolder', app_tmp,
+        '-ov', '-format', 'UDZO', dmg_path
+    ], check=True)
+    print(f'   生成: {dmg_path}')
+
+    # 生成 ZIP（OTA 更新用，只打包 .app）
+    zip_name = f'CommDebugTool-{APP_VERSION}-{plat}.zip'
+    zip_path = os.path.join(ver_dir, zip_name)
+    app_contents = os.path.join(app_tmp, 'CommDebugTool.app')
+    create_zip(zip_path, app_contents)
+    print(f'   生成: {zip_path}')
+
+    shutil.rmtree(app_tmp)
+    if os.path.exists(dist_dir):
+        shutil.rmtree(dist_dir)
+
+
+def build_windows(dist_dir, build_dir, plat):
+    run_cmd(
+        [sys.executable, '-m', 'PyInstaller',
+         '--onefile', '--windowed',
+         '--name', 'CommDebugTool',
+         '--distpath', dist_dir,
+         '--workpath', build_dir,
+         '--add-data', f'resources{os.pathsep}resources',
+         '--hidden-import', 'comm.tcp_client',
+         '--hidden-import', 'comm.tcp_server',
+         '--hidden-import', 'comm.udp_comm',
+         '--hidden-import', 'comm.serial_comm',
+         '--hidden-import', 'comm.websocket_comm',
+         '--hidden-import', 'comm.mqtt_comm',
+         '--hidden-import', 'packet.checksum',
+         '--hidden-import', 'packet.packet_builder',
+         '--hidden-import', 'protocols',
+         '--hidden-import', 'ui',
+         '--hidden-import', 'utils',
+         ] + ['main.py'],
+        '打包可执行文件'
+    )
+
+    print(f'\n>> 压缩打包...')
+    exe_path = os.path.join(dist_dir, 'CommDebugTool.exe')
+    if not os.path.exists(exe_path):
+        return
+
+    ver_dir = os.path.join('dist', f'v{APP_VERSION}')
+    os.makedirs(ver_dir, exist_ok=True)
+
+    zip_name = f'CommDebugTool-{APP_VERSION}-{plat}.zip'
+    zip_path = os.path.join(ver_dir, zip_name)
+    create_zip(zip_path, dist_dir)
+    print(f'   生成: {zip_path}')
+
+    if os.path.exists(dist_dir):
+        shutil.rmtree(dist_dir)
+
+
+def build_linux(dist_dir, build_dir, plat):
+    run_cmd(
+        [sys.executable, '-m', 'PyInstaller',
+         '--onefile', '--windowed',
+         '--name', 'CommDebugTool',
+         '--distpath', dist_dir,
+         '--workpath', build_dir,
+         '--add-data', f'resources{os.pathsep}resources',
+         '--hidden-import', 'comm.tcp_client',
+         '--hidden-import', 'comm.tcp_server',
+         '--hidden-import', 'comm.udp_comm',
+         '--hidden-import', 'comm.serial_comm',
+         '--hidden-import', 'comm.websocket_comm',
+         '--hidden-import', 'comm.mqtt_comm',
+         '--hidden-import', 'packet.checksum',
+         '--hidden-import', 'packet.packet_builder',
+         '--hidden-import', 'protocols',
+         '--hidden-import', 'ui',
+         '--hidden-import', 'utils',
+         ] + ['main.py'],
+        '打包可执行文件'
+    )
+
+    print(f'\n>> 压缩打包...')
+    binary_path = os.path.join(dist_dir, 'CommDebugTool')
+    if not os.path.exists(binary_path):
+        return
+
+    ver_dir = os.path.join('dist', f'v{APP_VERSION}')
+    os.makedirs(ver_dir, exist_ok=True)
+
+    tar_name = f'CommDebugTool-{APP_VERSION}-{plat}.tar.gz'
+    tar_path = os.path.join(ver_dir, tar_name)
+    with tarfile.open(tar_path, 'w:gz') as tf:
+        tf.add(dist_dir, arcname='CommDebugTool')
+    print(f'   生成: {tar_path}')
+
+    if os.path.exists(dist_dir):
+        shutil.rmtree(dist_dir)
 
 
 def main():
@@ -62,13 +235,14 @@ def main():
     build_dir = os.path.join('build', plat)
 
     print('=' * 55)
-    print('  CommDebugTool - 打包脚本')
+    print(f'  CommDebugTool v{APP_VERSION} - 打包脚本')
     print('=' * 55)
     print(f'  系统:     {platform.system()} {arch}')
     print(f'  Python:   {sys.version.split()[0]}')
-    print(f'  输出:     {dist_dir}/')
+    print(f'  输出:     dist/v{APP_VERSION}/')
     print('=' * 55)
 
+    # 安装依赖
     run_cmd(
         [sys.executable, '-m', 'pip', 'install', 'pyinstaller', 'pyserial', '-q',
          '-i', 'https://pypi.tuna.tsinghua.edu.cn/simple',
@@ -76,135 +250,33 @@ def main():
         '安装依赖'
     )
 
+    # 清理旧构建
     for d in [build_dir, dist_dir]:
         if os.path.exists(d):
             print(f'\n>> 清理 {d}/')
             shutil.rmtree(d)
 
-    if platform.system() == 'Darwin':
-        # macOS: 打包成 .app
-        icon_path = 'resources/app_icon.icns'
-        icon_arg = []
-        if os.path.exists(icon_path):
-            icon_arg = ['--icon', icon_path]
-        run_cmd(
-            [sys.executable, '-m', 'PyInstaller',
-             '--onefile', '--windowed',
-             '--name', 'CommDebugTool',
-             '--distpath', dist_dir,
-             '--workpath', build_dir,
-             '--add-data', f'resources{os.pathsep}resources',
-             '--hidden-import', 'comm.tcp_client',
-             '--hidden-import', 'comm.tcp_server',
-             '--hidden-import', 'comm.udp_comm',
-             '--hidden-import', 'comm.serial_comm',
-             '--hidden-import', 'comm.websocket_comm',
-             '--hidden-import', 'comm.mqtt_comm',
-             '--hidden-import', 'packet.checksum',
-             '--hidden-import', 'packet.packet_builder',
-             '--hidden-import', 'protocols',
-             '--hidden-import', 'ui',
-             '--hidden-import', 'utils',
-             ] + icon_arg + ['main.py'],
-            '打包可执行文件'
-        )
+    # 根据平台选择打包方式
+    system = platform.system()
+    if system == 'Darwin':
+        build_macos(dist_dir, build_dir, plat)
+    elif system == 'Windows':
+        build_windows(dist_dir, build_dir, plat)
+    elif system == 'Linux':
+        build_linux(dist_dir, build_dir, plat)
     else:
-        run_cmd(
-            [sys.executable, '-m', 'PyInstaller',
-             'CommDebugTool.spec',
-             '--noconfirm',
-             '--distpath', dist_dir,
-             '--workpath', build_dir],
-            '打包可执行文件'
-        )
-
-    print()
-    print(f'>> 压缩打包...')
-
-    if platform.system() == 'Darwin':
-        binary_path = os.path.join(dist_dir, 'CommDebugTool')
-        if os.path.exists(binary_path):
-            app_tmp = os.path.join('dist', '_app_tmp')
-            if os.path.exists(app_tmp):
-                shutil.rmtree(app_tmp)
-            app_dir = os.path.join(app_tmp, 'CommDebugTool.app', 'Contents', 'MacOS')
-            os.makedirs(app_dir)
-            shutil.copy2(binary_path, os.path.join(app_dir, 'CommDebugTool'))
-            os.chmod(os.path.join(app_dir, 'CommDebugTool'), 0o755)
-
-            resources_dir = os.path.join(app_tmp, 'CommDebugTool.app', 'Contents', 'Resources')
-            os.makedirs(resources_dir)
-            icon_src = 'resources/app_icon.icns'
-            if os.path.exists(icon_src):
-                shutil.copy2(icon_src, os.path.join(resources_dir, 'app_icon.icns'))
-
-            plist = '''<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0"><dict>
-<key>CFBundleExecutable</key><string>CommDebugTool</string>
-<key>CFBundleIdentifier</key><string>com.commdebugtool.app</string>
-<key>CFBundleName</key><string>CommDebugTool</string>
-<key>CFBundleIconFile</key><string>app_icon.icns</string>
-<key>CFBundlePackageType</key><string>APPL</string>
-<key>LSUIElement</key><true/>
-</dict></plist>'''
-            info_dir = os.path.join(app_tmp, 'CommDebugTool.app', 'Contents')
-            with open(os.path.join(info_dir, 'Info.plist'), 'w') as f:
-                f.write(plist)
-
-            ver_dir = os.path.join('dist', f'v{APP_VERSION}')
-            os.makedirs(ver_dir, exist_ok=True)
-
-            # 创建 Applications 快捷方式（引导用户拖拽安装）
-            apps_link = os.path.join(app_tmp, 'Applications')
-            subprocess.run(['ln', '-s', '/Applications', apps_link], check=True)
-
-            dmg_name = f'CommDebugTool-{APP_VERSION}-{plat}.dmg'
-            dmg_path = os.path.join(ver_dir, dmg_name)
-            subprocess.run([
-                'hdiutil', 'create', '-volname', 'CommDebugTool',
-                '-srcfolder', app_tmp,
-                '-ov', '-format', 'UDZO', dmg_path
-            ], check=True)
-            print(f'   生成: {dmg_path}')
-
-            zip_name = f'CommDebugTool-{APP_VERSION}-{plat}.zip'
-            zip_path = os.path.join(ver_dir, zip_name)
-            # 只打包 app_tmp 里面的内容，不包含 app_tmp 目录本身
-            app_contents = os.path.join(app_tmp, 'CommDebugTool.app')
-            if os.path.exists(app_contents):
-                create_zip(zip_path, app_contents)
-            else:
-                create_zip(zip_path, app_tmp)
-            print(f'   生成: {zip_path}')
-
-            shutil.rmtree(app_tmp)
-            if os.path.exists(dist_dir):
-                shutil.rmtree(dist_dir)
-            print(f'   生成: {zip_path}')
-    elif platform.system() == 'Windows':
-        exe_glob = os.path.join(dist_dir, 'CommDebugTool.exe')
-        if os.path.exists(exe_glob):
-            zip_name = f'CommDebugTool-{plat}.zip'
-            zip_path = os.path.join('dist', zip_name)
-            create_zip(zip_path, dist_dir)
-            print(f'   生成: {zip_path}')
-            shutil.rmtree(dist_dir)
-    elif platform.system() == 'Linux':
-        binary_path = os.path.join(dist_dir, 'CommDebugTool')
-        if os.path.exists(binary_path):
-            tar_name = f'CommDebugTool-{plat}.tar.gz'
-            tar_path = os.path.join('dist', tar_name)
-            with tarfile.open(tar_path, 'w:gz') as tf:
-                tf.add(dist_dir, arcname='')
-            print(f'   生成: {tar_path}')
-            shutil.rmtree(dist_dir)
+        print(f'不支持的平台: {system}')
+        sys.exit(1)
 
     print()
     print('=' * 55)
     print('  打包完成!')
     print('=' * 55)
-    print(f'  压缩包在 dist/ 目录下')
+    print(f'  输出目录: dist/v{APP_VERSION}/')
+    print()
+    print('  如需打包其他平台:')
+    print('  1. 在对应平台运行 python build_all.py')
+    print('  2. 或推送到 GitHub 用 Actions 自动打包')
     print()
 
 
