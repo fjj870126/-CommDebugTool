@@ -338,7 +338,12 @@ def show_update_dialog(parent, info: dict, config_update: dict = None):
             return
         asset = _select_asset(assets)
         if not asset:
-            messagebox.showwarning('提示', '没有找到适合当前平台的安装包', parent=dialog)
+            sys_info = f'{platform.system()} {platform.machine()}'
+            messagebox.showwarning('提示', 
+                f'当前系统 ({sys_info}) 暂无对应的安装包。\n'
+                f'请前往 Gitee 发布页面查看支持的版本:\n'
+                f'https://gitee.com/{OWNER}/{REPO}/releases',
+                parent=dialog)
             return
 
         download_btn.configure(state=tk.DISABLED)
