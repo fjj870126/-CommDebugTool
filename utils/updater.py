@@ -157,13 +157,13 @@ def _select_asset(assets: list) -> dict:
         if sys_plat == 'Linux' and (name.endswith('.tar.gz') or name.endswith('.AppImage')):
             return asset
 
-    # 任意本平台的 zip
+    # 任意本平台的 zip（不限制架构）
     for asset in assets:
         name = asset['name'].lower()
         if name.endswith('.zip') and plat_name and plat_name in name:
             return asset
 
-    # 任意 zip
+    # 任意 zip（最后兜底）
     for asset in assets:
         name = asset['name'].lower()
         if name.endswith('.zip'):
