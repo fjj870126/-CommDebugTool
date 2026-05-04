@@ -1,0 +1,185 @@
+"""GRMS 监控协议 - 房间管理类命令 (0x50-0x5B)
+查询VIP房、查询维修房、设置VIP房、设置维修房、设置联通房、设备日志上报
+"""
+
+GRMS_ROOM_TEMPLATES = {
+    # ===== 1.34 查询VIP房 (0x50/0x51) =====
+    '查询VIP房(发送)': {
+        'fields': [
+            {'name': 'Header', 'hex_value': 'BA', 'byte_count': 1, 'field_type': '固定值', 'description': '命令头'},
+            {'name': 'Func', 'hex_value': '50', 'byte_count': 1, 'field_type': '数据', 'description': '功能码 0x50'},
+            {'name': 'Sequence', 'hex_value': '0001', 'byte_count': 2, 'field_type': '数据', 'description': '流水号'},
+            {'name': 'Box', 'hex_value': '01', 'byte_count': 1, 'field_type': '数据', 'description': '设备地址'},
+            {'name': 'TotalLen', 'hex_value': '', 'byte_count': 2, 'field_type': '长度', 'description': '命令长度之和', 'length_start': 0, 'length_end': 3, 'length_byte_order': 'big'},
+            {'name': 'DeviceCode', 'hex_value': '01', 'byte_count': 1, 'field_type': '数据', 'description': '设备编码'},
+            {'name': 'DeviceBox', 'hex_value': '01', 'byte_count': 1, 'field_type': '数据', 'description': '设备地址'},
+            {'name': 'CRC16', 'hex_value': '', 'byte_count': 2, 'field_type': '校验', 'description': 'CRC16校验(高位在前)', 'checksum_algorithm': 'CRC16/MODBUS', 'checksum_start': 0, 'checksum_end': 6, 'checksum_byte_order': 'big'},
+        ],
+        'desc': 'GRMS查询VIP房(发送)',
+    },
+    '查询VIP房(回复)': {
+        'fields': [
+            {'name': 'Header', 'hex_value': 'BA', 'byte_count': 1, 'field_type': '固定值', 'description': '命令头'},
+            {'name': 'Func', 'hex_value': '51', 'byte_count': 1, 'field_type': '数据', 'description': '功能码 0x51'},
+            {'name': 'Sequence', 'hex_value': '0001', 'byte_count': 2, 'field_type': '数据', 'description': '流水号'},
+            {'name': 'Box', 'hex_value': '01', 'byte_count': 1, 'field_type': '数据', 'description': '设备地址'},
+            {'name': 'TotalLen', 'hex_value': '', 'byte_count': 2, 'field_type': '长度', 'description': '命令长度之和', 'length_start': 0, 'length_end': 3, 'length_byte_order': 'big'},
+            {'name': 'DeviceCode', 'hex_value': '01', 'byte_count': 1, 'field_type': '数据', 'description': '设备编码'},
+            {'name': 'DeviceBox', 'hex_value': '01', 'byte_count': 1, 'field_type': '数据', 'description': '设备地址'},
+            {'name': 'Status', 'hex_value': '00', 'byte_count': 1, 'field_type': '数据', 'description': '0x00=否, 0x01=是', 'parse_mode': '枚举映射', 'enum_mappings': [{'value': 0, 'label': '否'}, {'value': 1, 'label': '是'}]},
+            {'name': 'CRC16', 'hex_value': '', 'byte_count': 2, 'field_type': '校验', 'description': 'CRC16校验(高位在前)', 'checksum_algorithm': 'CRC16/MODBUS', 'checksum_start': 0, 'checksum_end': 7, 'checksum_byte_order': 'big'},
+        ],
+        'desc': 'GRMS查询VIP房(回复)',
+    },
+    # ===== 1.35 查询维修房 (0x52/0x53) =====
+    '查询维修房(发送)': {
+        'fields': [
+            {'name': 'Header', 'hex_value': 'BA', 'byte_count': 1, 'field_type': '固定值', 'description': '命令头'},
+            {'name': 'Func', 'hex_value': '52', 'byte_count': 1, 'field_type': '数据', 'description': '功能码 0x52'},
+            {'name': 'Sequence', 'hex_value': '0001', 'byte_count': 2, 'field_type': '数据', 'description': '流水号'},
+            {'name': 'Box', 'hex_value': '01', 'byte_count': 1, 'field_type': '数据', 'description': '设备地址'},
+            {'name': 'TotalLen', 'hex_value': '', 'byte_count': 2, 'field_type': '长度', 'description': '命令长度之和', 'length_start': 0, 'length_end': 3, 'length_byte_order': 'big'},
+            {'name': 'DeviceCode', 'hex_value': '01', 'byte_count': 1, 'field_type': '数据', 'description': '设备编码'},
+            {'name': 'DeviceBox', 'hex_value': '01', 'byte_count': 1, 'field_type': '数据', 'description': '设备地址'},
+            {'name': 'CRC16', 'hex_value': '', 'byte_count': 2, 'field_type': '校验', 'description': 'CRC16校验(高位在前)', 'checksum_algorithm': 'CRC16/MODBUS', 'checksum_start': 0, 'checksum_end': 6, 'checksum_byte_order': 'big'},
+        ],
+        'desc': 'GRMS查询维修房(发送)',
+    },
+    '查询维修房(回复)': {
+        'fields': [
+            {'name': 'Header', 'hex_value': 'BA', 'byte_count': 1, 'field_type': '固定值', 'description': '命令头'},
+            {'name': 'Func', 'hex_value': '53', 'byte_count': 1, 'field_type': '数据', 'description': '功能码 0x53'},
+            {'name': 'Sequence', 'hex_value': '0001', 'byte_count': 2, 'field_type': '数据', 'description': '流水号'},
+            {'name': 'Box', 'hex_value': '01', 'byte_count': 1, 'field_type': '数据', 'description': '设备地址'},
+            {'name': 'TotalLen', 'hex_value': '', 'byte_count': 2, 'field_type': '长度', 'description': '命令长度之和', 'length_start': 0, 'length_end': 3, 'length_byte_order': 'big'},
+            {'name': 'DeviceCode', 'hex_value': '01', 'byte_count': 1, 'field_type': '数据', 'description': '设备编码'},
+            {'name': 'DeviceBox', 'hex_value': '01', 'byte_count': 1, 'field_type': '数据', 'description': '设备地址'},
+            {'name': 'Status', 'hex_value': '00', 'byte_count': 1, 'field_type': '数据', 'description': '0x00=否, 0x01=是', 'parse_mode': '枚举映射', 'enum_mappings': [{'value': 0, 'label': '否'}, {'value': 1, 'label': '是'}]},
+            {'name': 'CRC16', 'hex_value': '', 'byte_count': 2, 'field_type': '校验', 'description': 'CRC16校验(高位在前)', 'checksum_algorithm': 'CRC16/MODBUS', 'checksum_start': 0, 'checksum_end': 7, 'checksum_byte_order': 'big'},
+        ],
+        'desc': 'GRMS查询维修房(回复)',
+    },
+    # ===== 1.36 设置VIP房 (0x54/0x55) =====
+    '设置VIP房(发送)': {
+        'fields': [
+            {'name': 'Header', 'hex_value': 'BA', 'byte_count': 1, 'field_type': '固定值', 'description': '命令头'},
+            {'name': 'Func', 'hex_value': '54', 'byte_count': 1, 'field_type': '数据', 'description': '功能码 0x54'},
+            {'name': 'Sequence', 'hex_value': '0001', 'byte_count': 2, 'field_type': '数据', 'description': '流水号'},
+            {'name': 'Box', 'hex_value': '01', 'byte_count': 1, 'field_type': '数据', 'description': '设备地址'},
+            {'name': 'TotalLen', 'hex_value': '', 'byte_count': 2, 'field_type': '长度', 'description': '命令长度之和', 'length_start': 0, 'length_end': 3, 'length_byte_order': 'big'},
+            {'name': 'DeviceCode', 'hex_value': '01', 'byte_count': 1, 'field_type': '数据', 'description': '设备编码'},
+            {'name': 'DeviceBox', 'hex_value': '01', 'byte_count': 1, 'field_type': '数据', 'description': '设备地址'},
+            {'name': 'SetValue', 'hex_value': '01', 'byte_count': 1, 'field_type': '数据', 'description': '0x00=取消, 0x01=设置', 'parse_mode': '枚举映射', 'enum_mappings': [{'value': 0, 'label': '取消'}, {'value': 1, 'label': '设置'}]},
+            {'name': 'CRC16', 'hex_value': '', 'byte_count': 2, 'field_type': '校验', 'description': 'CRC16校验(高位在前)', 'checksum_algorithm': 'CRC16/MODBUS', 'checksum_start': 0, 'checksum_end': 7, 'checksum_byte_order': 'big'},
+        ],
+        'desc': 'GRMS设置VIP房(发送)',
+    },
+    '设置VIP房(回复)': {
+        'fields': [
+            {'name': 'Header', 'hex_value': 'BA', 'byte_count': 1, 'field_type': '固定值', 'description': '命令头'},
+            {'name': 'Func', 'hex_value': '55', 'byte_count': 1, 'field_type': '数据', 'description': '功能码 0x55'},
+            {'name': 'Sequence', 'hex_value': '0001', 'byte_count': 2, 'field_type': '数据', 'description': '流水号'},
+            {'name': 'Box', 'hex_value': '01', 'byte_count': 1, 'field_type': '数据', 'description': '设备地址'},
+            {'name': 'TotalLen', 'hex_value': '', 'byte_count': 2, 'field_type': '长度', 'description': '命令长度之和', 'length_start': 0, 'length_end': 3, 'length_byte_order': 'big'},
+            {'name': 'DeviceCode', 'hex_value': '01', 'byte_count': 1, 'field_type': '数据', 'description': '设备编码'},
+            {'name': 'DeviceBox', 'hex_value': '01', 'byte_count': 1, 'field_type': '数据', 'description': '设备地址'},
+            {'name': 'Result', 'hex_value': '01', 'byte_count': 1, 'field_type': '数据', 'description': '0=失败, 1=成功', 'parse_mode': '枚举映射', 'enum_mappings': [{'value': 0, 'label': '失败'}, {'value': 1, 'label': '成功'}]},
+            {'name': 'CRC16', 'hex_value': '', 'byte_count': 2, 'field_type': '校验', 'description': 'CRC16校验(高位在前)', 'checksum_algorithm': 'CRC16/MODBUS', 'checksum_start': 0, 'checksum_end': 7, 'checksum_byte_order': 'big'},
+        ],
+        'desc': 'GRMS设置VIP房(回复)',
+    },
+    # ===== 1.37 设置维修房 (0x56/0x57) =====
+    '设置维修房(发送)': {
+        'fields': [
+            {'name': 'Header', 'hex_value': 'BA', 'byte_count': 1, 'field_type': '固定值', 'description': '命令头'},
+            {'name': 'Func', 'hex_value': '56', 'byte_count': 1, 'field_type': '数据', 'description': '功能码 0x56'},
+            {'name': 'Sequence', 'hex_value': '0001', 'byte_count': 2, 'field_type': '数据', 'description': '流水号'},
+            {'name': 'Box', 'hex_value': '01', 'byte_count': 1, 'field_type': '数据', 'description': '设备地址'},
+            {'name': 'TotalLen', 'hex_value': '', 'byte_count': 2, 'field_type': '长度', 'description': '命令长度之和', 'length_start': 0, 'length_end': 3, 'length_byte_order': 'big'},
+            {'name': 'DeviceCode', 'hex_value': '01', 'byte_count': 1, 'field_type': '数据', 'description': '设备编码'},
+            {'name': 'DeviceBox', 'hex_value': '01', 'byte_count': 1, 'field_type': '数据', 'description': '设备地址'},
+            {'name': 'SetValue', 'hex_value': '01', 'byte_count': 1, 'field_type': '数据', 'description': '0x00=取消, 0x01=设置', 'parse_mode': '枚举映射', 'enum_mappings': [{'value': 0, 'label': '取消'}, {'value': 1, 'label': '设置'}]},
+            {'name': 'CRC16', 'hex_value': '', 'byte_count': 2, 'field_type': '校验', 'description': 'CRC16校验(高位在前)', 'checksum_algorithm': 'CRC16/MODBUS', 'checksum_start': 0, 'checksum_end': 7, 'checksum_byte_order': 'big'},
+        ],
+        'desc': 'GRMS设置维修房(发送)',
+    },
+    '设置维修房(回复)': {
+        'fields': [
+            {'name': 'Header', 'hex_value': 'BA', 'byte_count': 1, 'field_type': '固定值', 'description': '命令头'},
+            {'name': 'Func', 'hex_value': '57', 'byte_count': 1, 'field_type': '数据', 'description': '功能码 0x57'},
+            {'name': 'Sequence', 'hex_value': '0001', 'byte_count': 2, 'field_type': '数据', 'description': '流水号'},
+            {'name': 'Box', 'hex_value': '01', 'byte_count': 1, 'field_type': '数据', 'description': '设备地址'},
+            {'name': 'TotalLen', 'hex_value': '', 'byte_count': 2, 'field_type': '长度', 'description': '命令长度之和', 'length_start': 0, 'length_end': 3, 'length_byte_order': 'big'},
+            {'name': 'DeviceCode', 'hex_value': '01', 'byte_count': 1, 'field_type': '数据', 'description': '设备编码'},
+            {'name': 'DeviceBox', 'hex_value': '01', 'byte_count': 1, 'field_type': '数据', 'description': '设备地址'},
+            {'name': 'Result', 'hex_value': '01', 'byte_count': 1, 'field_type': '数据', 'description': '0=失败, 1=成功', 'parse_mode': '枚举映射', 'enum_mappings': [{'value': 0, 'label': '失败'}, {'value': 1, 'label': '成功'}]},
+            {'name': 'CRC16', 'hex_value': '', 'byte_count': 2, 'field_type': '校验', 'description': 'CRC16校验(高位在前)', 'checksum_algorithm': 'CRC16/MODBUS', 'checksum_start': 0, 'checksum_end': 7, 'checksum_byte_order': 'big'},
+        ],
+        'desc': 'GRMS设置维修房(回复)',
+    },
+    # ===== 1.38 设置联通房 (0x58/0x59) =====
+    '设置联通房(发送)': {
+        'fields': [
+            {'name': 'Header', 'hex_value': 'BA', 'byte_count': 1, 'field_type': '固定值', 'description': '命令头'},
+            {'name': 'Func', 'hex_value': '58', 'byte_count': 1, 'field_type': '数据', 'description': '功能码 0x58'},
+            {'name': 'Sequence', 'hex_value': '0001', 'byte_count': 2, 'field_type': '数据', 'description': '流水号'},
+            {'name': 'Box', 'hex_value': '01', 'byte_count': 1, 'field_type': '数据', 'description': '设备地址'},
+            {'name': 'TotalLen', 'hex_value': '', 'byte_count': 2, 'field_type': '长度', 'description': '命令长度之和', 'length_start': 0, 'length_end': 3, 'length_byte_order': 'big'},
+            {'name': 'DeviceCode', 'hex_value': '01', 'byte_count': 1, 'field_type': '数据', 'description': '设备编码'},
+            {'name': 'DeviceBox', 'hex_value': '01', 'byte_count': 1, 'field_type': '数据', 'description': '设备地址'},
+            {'name': 'SetValue', 'hex_value': '01', 'byte_count': 1, 'field_type': '数据', 'description': '0x00=取消, 0x01=设置', 'parse_mode': '枚举映射', 'enum_mappings': [{'value': 0, 'label': '取消'}, {'value': 1, 'label': '设置'}]},
+            {'name': 'CRC16', 'hex_value': '', 'byte_count': 2, 'field_type': '校验', 'description': 'CRC16校验(高位在前)', 'checksum_algorithm': 'CRC16/MODBUS', 'checksum_start': 0, 'checksum_end': 7, 'checksum_byte_order': 'big'},
+        ],
+        'desc': 'GRMS设置联通房(发送)',
+    },
+    '设置联通房(回复)': {
+        'fields': [
+            {'name': 'Header', 'hex_value': 'BA', 'byte_count': 1, 'field_type': '固定值', 'description': '命令头'},
+            {'name': 'Func', 'hex_value': '59', 'byte_count': 1, 'field_type': '数据', 'description': '功能码 0x59'},
+            {'name': 'Sequence', 'hex_value': '0001', 'byte_count': 2, 'field_type': '数据', 'description': '流水号'},
+            {'name': 'Box', 'hex_value': '01', 'byte_count': 1, 'field_type': '数据', 'description': '设备地址'},
+            {'name': 'TotalLen', 'hex_value': '', 'byte_count': 2, 'field_type': '长度', 'description': '命令长度之和', 'length_start': 0, 'length_end': 3, 'length_byte_order': 'big'},
+            {'name': 'DeviceCode', 'hex_value': '01', 'byte_count': 1, 'field_type': '数据', 'description': '设备编码'},
+            {'name': 'DeviceBox', 'hex_value': '01', 'byte_count': 1, 'field_type': '数据', 'description': '设备地址'},
+            {'name': 'Result', 'hex_value': '01', 'byte_count': 1, 'field_type': '数据', 'description': '0=失败, 1=成功', 'parse_mode': '枚举映射', 'enum_mappings': [{'value': 0, 'label': '失败'}, {'value': 1, 'label': '成功'}]},
+            {'name': 'CRC16', 'hex_value': '', 'byte_count': 2, 'field_type': '校验', 'description': 'CRC16校验(高位在前)', 'checksum_algorithm': 'CRC16/MODBUS', 'checksum_start': 0, 'checksum_end': 7, 'checksum_byte_order': 'big'},
+        ],
+        'desc': 'GRMS设置联通房(回复)',
+    },
+    # ===== 1.39 设备日志上报 (0x5A/0x5B) =====
+    '设备日志上报(发送)': {
+        'fields': [
+            {'name': 'Header', 'hex_value': 'BA', 'byte_count': 1, 'field_type': '固定值', 'description': '命令头'},
+            {'name': 'Func', 'hex_value': '5A', 'byte_count': 1, 'field_type': '数据', 'description': '功能码 0x5A'},
+            {'name': 'Sequence', 'hex_value': '0001', 'byte_count': 2, 'field_type': '数据', 'description': '流水号'},
+            {'name': 'Box', 'hex_value': '01', 'byte_count': 1, 'field_type': '数据', 'description': '设备地址'},
+            {'name': 'TotalLen', 'hex_value': '', 'byte_count': 2, 'field_type': '长度', 'description': '命令长度之和', 'length_start': 0, 'length_end': 3, 'length_byte_order': 'big'},
+            {'name': 'DeviceCode', 'hex_value': '01', 'byte_count': 1, 'field_type': '数据', 'description': '设备编码'},
+            {'name': 'DeviceBox', 'hex_value': '01', 'byte_count': 1, 'field_type': '数据', 'description': '设备地址'},
+            {'name': 'HistoryFlag', 'hex_value': '00', 'byte_count': 1, 'field_type': '数据', 'description': '0x00=实时, 0x01=历史', 'parse_mode': '枚举映射', 'enum_mappings': [{'value': 0, 'label': '实时'}, {'value': 1, 'label': '历史'}]},
+            {'name': 'YEAR', 'hex_value': '19', 'byte_count': 1, 'field_type': '数据', 'description': '年低位'},
+            {'name': 'MONTH', 'hex_value': '0A', 'byte_count': 1, 'field_type': '数据', 'description': '月'},
+            {'name': 'DAY', 'hex_value': '0E', 'byte_count': 1, 'field_type': '数据', 'description': '日'},
+            {'name': 'HOUR', 'hex_value': '0E', 'byte_count': 1, 'field_type': '数据', 'description': '时'},
+            {'name': 'MINUTE', 'hex_value': '2F', 'byte_count': 1, 'field_type': '数据', 'description': '分'},
+            {'name': 'SECOND', 'hex_value': '13', 'byte_count': 1, 'field_type': '数据', 'description': '秒'},
+            {'name': 'LogDataLen', 'hex_value': '0000', 'byte_count': 2, 'field_type': '数据', 'description': '日志数据长度'},
+            {'name': 'CRC16', 'hex_value': '', 'byte_count': 2, 'field_type': '校验', 'description': 'CRC16校验(高位在前)', 'checksum_algorithm': 'CRC16/MODBUS', 'checksum_start': 0, 'checksum_end': 14, 'checksum_byte_order': 'big'},
+        ],
+        'desc': 'GRMS设备日志上报(发送)',
+    },
+    '设备日志上报(回复)': {
+        'fields': [
+            {'name': 'Header', 'hex_value': 'BA', 'byte_count': 1, 'field_type': '固定值', 'description': '命令头'},
+            {'name': 'Func', 'hex_value': '5B', 'byte_count': 1, 'field_type': '数据', 'description': '功能码 0x5B'},
+            {'name': 'Sequence', 'hex_value': '0001', 'byte_count': 2, 'field_type': '数据', 'description': '流水号'},
+            {'name': 'Box', 'hex_value': '01', 'byte_count': 1, 'field_type': '数据', 'description': '设备地址'},
+            {'name': 'TotalLen', 'hex_value': '', 'byte_count': 2, 'field_type': '长度', 'description': '命令长度之和', 'length_start': 0, 'length_end': 3, 'length_byte_order': 'big'},
+            {'name': 'DeviceCode', 'hex_value': '01', 'byte_count': 1, 'field_type': '数据', 'description': '设备编码'},
+            {'name': 'DeviceBox', 'hex_value': '01', 'byte_count': 1, 'field_type': '数据', 'description': '设备地址'},
+            {'name': 'Result', 'hex_value': '01', 'byte_count': 1, 'field_type': '数据', 'description': '0=失败, 1=成功', 'parse_mode': '枚举映射', 'enum_mappings': [{'value': 0, 'label': '失败'}, {'value': 1, 'label': '成功'}]},
+            {'name': 'CRC16', 'hex_value': '', 'byte_count': 2, 'field_type': '校验', 'description': 'CRC16校验(高位在前)', 'checksum_algorithm': 'CRC16/MODBUS', 'checksum_start': 0, 'checksum_end': 7, 'checksum_byte_order': 'big'},
+        ],
+        'desc': 'GRMS设备日志上报(回复)',
+    },
+}

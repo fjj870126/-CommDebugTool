@@ -1,0 +1,104 @@
+{
+  "fields": [
+    {
+      "name": "帧头",
+      "hex_value": "BA",
+      "byte_count": 1,
+      "field_type": "固定值"
+    },
+    {
+      "name": "功能码",
+      "hex_value": "01",
+      "byte_count": 1,
+      "field_type": "数据"
+    },
+    {
+      "name": "流水号",
+      "hex_value": "0001",
+      "byte_count": 2,
+      "field_type": "数据"
+    },
+    {
+      "name": "设备地址",
+      "hex_value": "00",
+      "byte_count": 1,
+      "field_type": "数据"
+    },
+    {
+      "name": "数据长度",
+      "hex_value": "",
+      "byte_count": 1,
+      "field_type": "长度",
+      "length_start": 0,
+      "length_end": 5,
+      "length_byte_order": "big"
+    },
+    {
+      "name": "设备编码",
+      "hex_value": "01",
+      "byte_count": 1,
+      "field_type": "数据"
+    },
+    {
+      "name": "设备地址",
+      "hex_value": "00",
+      "byte_count": 1,
+      "field_type": "数据"
+    },
+    {
+      "name": "控制数据长度",
+      "hex_value": "00",
+      "byte_count": 2,
+      "field_type": "长度",
+      "length_start": 8,
+      "length_end": 13,
+      "length_byte_order": "big"
+    },
+    {
+      "name": "空调1-id",
+      "hex_value": "01",
+      "byte_count": 1,
+      "field_type": "数据"
+    },
+    {
+      "name": "空调1-onoff",
+      "hex_value": "01",
+      "byte_count": 1,
+      "field_type": "数据"
+    },
+    {
+      "name": "空调1-fan",
+      "hex_value": "1E",
+      "byte_count": 1,
+      "field_type": "数据"
+    },
+    {
+      "name": "空调1-模式",
+      "hex_value": "01",
+      "byte_count": 1,
+      "field_type": "数据"
+    },
+    {
+      "name": "设置温度",
+      "hex_value": "EB",
+      "byte_count": 2,
+      "field_type": "数据"
+    },
+    {
+      "name": "空调1-预留",
+      "hex_value": "00",
+      "byte_count": 3,
+      "field_type": "数据"
+    },
+    {
+      "name": "CRC校验",
+      "hex_value": "",
+      "byte_count": 2,
+      "field_type": "校验"
+    }
+  ],
+  "checksum_algorithm": "CRC16/MODBUS",
+  "checksum_start": 0,
+  "checksum_end": 13,
+  "checksum_byte_order": "little"
+}

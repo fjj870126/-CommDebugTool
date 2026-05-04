@@ -1,0 +1,42 @@
+# Build outputs
+dist/
+build/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+*.egg
+
+# PyInstaller
+*.manifest
+*.spec.bak
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Config (contains user-specific settings)
+config.json
+settings.json
+send_shortcuts.json
+
+# Log files
+comm_log_*.txt
+
+# Test files
+test/
+test.zip
+*.zip
+
+# JSON test data
+123.json
+K 项目*.json
+K项目*.json
