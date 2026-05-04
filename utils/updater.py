@@ -130,6 +130,10 @@ def install_update(local_path: str):
                     if os.path.exists(temp_target):
                         shutil.rmtree(temp_target)
                     shutil.copytree(app_path, temp_target)
+                    # 修复执行权限
+                    binary = os.path.join(temp_target, 'Contents', 'MacOS', 'CommDebugTool')
+                    if os.path.exists(binary):
+                        os.chmod(binary, 0o755)
                     # 签名
                     subprocess.run(['xattr', '-dr', 'com.apple.quarantine', temp_target],
                                    capture_output=True)
