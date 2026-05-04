@@ -119,15 +119,17 @@ def download_update(asset: dict, progress_callback=None) -> str:
 def install_update(local_path: str):
     """安装更新包并重启"""
     import zipfile
-    import tempfile
     import shutil
+    import subprocess
 
     sys_plat = platform.system()
     try:
         if local_path.endswith('.zip'):
-            extract_dir = os.path.join(tempfile.gettempdir(), 'commdebugtool_update')
+            extract_parent = os.path.expanduser('~/.commdebugtool_update')
+            extract_dir = os.path.join(extract_parent, 'app')
             if os.path.exists(extract_dir):
                 shutil.rmtree(extract_dir)
+            os.makedirs(extract_dir, exist_ok=True)
             with zipfile.ZipFile(local_path, 'r') as zf:
                 zf.extractall(extract_dir)
 
@@ -164,6 +166,10 @@ def install_update(local_path: str):
                     subprocess.run(['codesign', '--force', '--deep', '--sign', '-', new_binary],
                                    capture_output=True)
                     subprocess.Popen([new_binary])
+                # 延迟清理旧文件
+                subprocess.Popen(['bash', '-c',
+                    f'sleep 5 && rm -rf {extract_parent}'],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 sys.exit(0)
             else:
                 subprocess.Popen([new_binary])
