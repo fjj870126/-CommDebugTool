@@ -29,8 +29,8 @@ UPDATE_SOURCES = [
     },
 ]
 
-OWNER = 'your-username'
-REPO = 'CommDebugTool'
+OWNER = 'fjj20800959'
+REPO = 'comm-debug-tool'
 
 
 def _parse_version(tag: str) -> tuple:
