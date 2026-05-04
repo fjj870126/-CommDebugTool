@@ -155,6 +155,10 @@ def main():
             ver_dir = os.path.join('dist', f'v{APP_VERSION}')
             os.makedirs(ver_dir, exist_ok=True)
 
+            # 创建 Applications 快捷方式（引导用户拖拽安装）
+            apps_link = os.path.join(app_tmp, 'Applications')
+            subprocess.run(['ln', '-s', '/Applications', apps_link], check=True)
+
             dmg_name = f'CommDebugTool-{APP_VERSION}-{plat}.dmg'
             dmg_path = os.path.join(ver_dir, dmg_name)
             subprocess.run([
