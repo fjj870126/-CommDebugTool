@@ -1,0 +1,119 @@
+{
+  "fields": [
+    {
+      "name": "帧头",
+      "hex_value": "BA",
+      "byte_count": 1,
+      "field_type": "固定值",
+      "description": ""
+    },
+    {
+      "name": "功能码",
+      "hex_value": "01",
+      "byte_count": 1,
+      "field_type": "数据",
+      "description": ""
+    },
+    {
+      "name": "流水号",
+      "hex_value": "0001",
+      "byte_count": 2,
+      "field_type": "数据",
+      "description": ""
+    },
+    {
+      "name": "设备地址",
+      "hex_value": "01",
+      "byte_count": 1,
+      "field_type": "数据",
+      "description": ""
+    },
+    {
+      "name": "数据长度",
+      "hex_value": "",
+      "byte_count": 2,
+      "field_type": "长度",
+      "description": "",
+      "length_start": 0,
+      "length_end": 14,
+      "length_byte_order": "big"
+    },
+    {
+      "name": "设备编码",
+      "hex_value": "01",
+      "byte_count": 1,
+      "field_type": "数据",
+      "description": ""
+    },
+    {
+      "name": "设备地址",
+      "hex_value": "00",
+      "byte_count": 1,
+      "field_type": "数据",
+      "description": ""
+    },
+    {
+      "name": "控制数据长度",
+      "hex_value": "00",
+      "byte_count": 2,
+      "field_type": "长度",
+      "description": "包括Header,Func,TotalLen,Payload,CRC16",
+      "length_start": 8,
+      "length_end": 13,
+      "length_byte_order": "big"
+    },
+    {
+      "name": "空调1-id",
+      "hex_value": "01",
+      "byte_count": 1,
+      "field_type": "数据",
+      "description": "空调ID，范围[1-255]"
+    },
+    {
+      "name": "空调1-onoff",
+      "hex_value": "01",
+      "byte_count": 1,
+      "field_type": "数据",
+      "description": "空调开关，范围[0,1,255] 0表示关, 1表示开，255 表示默认"
+    },
+    {
+      "name": "空调1-fan",
+      "hex_value": "64",
+      "byte_count": 1,
+      "field_type": "数据",
+      "description": "空调风速，范围[0-100,104,255] 0表示关闭，1-100表示100档位（ 100表示高速，70表示中速，30表示低速）， 104表示自动， 255 表示默认"
+    },
+    {
+      "name": "空调1-模式",
+      "hex_value": "01",
+      "byte_count": 1,
+      "field_type": "数据",
+      "description": "空调模式，范围[0,1,2,3,5,6,255] 其中0表示关闭， 1表示通风，2表示制冷，3表示制热， 5表示除湿，6表示自动，255 表示默认"
+    },
+    {
+      "name": "设置温度",
+      "hex_value": "012C",
+      "byte_count": 2,
+      "field_type": "数据",
+      "description": "空调设置温度，取值范围为[-99℃, 99℃], 精度0.1℃，最高位bit15表示符号，0表示正，1表示负，剩余位bit14 - bit0表示设置温度的数值（大端格式）"
+    },
+    {
+      "name": "空调1-预留",
+      "hex_value": "00",
+      "byte_count": 3,
+      "field_type": "数据",
+      "description": ""
+    },
+    {
+      "name": "CRC校验",
+      "hex_value": "",
+      "byte_count": 2,
+      "field_type": "校验",
+      "description": "（不包括CRC16）的标准CRC16校验码（高位在前，低位在后）",
+      "checksum_algorithm": "CRC16/MODBUS",
+      "checksum_start": 0,
+      "checksum_end": 13,
+      "checksum_byte_order": "big"
+    }
+  ]
+}

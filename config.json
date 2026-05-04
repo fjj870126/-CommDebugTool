@@ -1,0 +1,94 @@
+{
+  "comm": {
+    "protocol": "UDP",
+    "ip": "192.168.2.113",
+    "port": "8081",
+    "local_port": "0",
+    "serial_port": "/dev/cu.HUAWEIFreeBudsPro4 - n/a",
+    "baudrate": "115200",
+    "databits": "8",
+    "parity": "N",
+    "stopbits": "1"
+  },
+  "heartbeat": {
+    "reply_enabled": false,
+    "match_hex": "AA 55 00 01 FE",
+    "reply_hex": "AA 55 80 01 7E",
+    "match_mode": "完全匹配",
+    "heartbeat_hex": "AA 55 00 01 FE",
+    "interval": "3000"
+  },
+  "send": {
+    "mode": "hex",
+    "input": "",
+    "interval": "1000",
+    "encoding": "UTF-8",
+    "newline": "无",
+    "prefix": "",
+    "suffix": "",
+    "line_delay": "0",
+    "history": []
+  },
+  "packet": {
+    "templates": {
+      "默认模板": {
+        "fields": [
+          {
+            "name": "帧头",
+            "hex_value": "AA55",
+            "byte_count": 2,
+            "field_type": "固定值",
+            "description": "协议起始标志"
+          },
+          {
+            "name": "命令字",
+            "hex_value": "01",
+            "byte_count": 1,
+            "field_type": "数据",
+            "description": "功能码"
+          },
+          {
+            "name": "数据长度",
+            "hex_value": "",
+            "byte_count": 1,
+            "field_type": "长度",
+            "description": "数据区长度",
+            "length_start": 3,
+            "length_end": 3,
+            "length_byte_order": "big"
+          },
+          {
+            "name": "数据",
+            "hex_value": "00",
+            "byte_count": 1,
+            "field_type": "数据",
+            "description": "业务数据"
+          },
+          {
+            "name": "CRC校验",
+            "hex_value": "",
+            "byte_count": 2,
+            "field_type": "校验",
+            "description": "CRC16/MODBUS 校验值",
+            "checksum_algorithm": "CRC16/MODBUS",
+            "checksum_start": 0,
+            "checksum_end": 3,
+            "checksum_byte_order": "little"
+          }
+        ]
+      }
+    },
+    "current_template_name": "默认模板",
+    "last_template_path": "",
+    "column_widths": {
+      "name": 100,
+      "hex": 140,
+      "bytes": 50,
+      "type": 60,
+      "desc": 160
+    }
+  },
+  "window": {
+    "geometry": "1200x800+909+1009"
+  }
+}

@@ -1,0 +1,111 @@
+{
+  "fields": [
+    {
+      "name": "帧头",
+      "hex_value": "BA",
+      "byte_count": 1,
+      "field_type": "固定值",
+      "description": ""
+    },
+    {
+      "name": "功能码",
+      "hex_value": "02",
+      "byte_count": 1,
+      "field_type": "数据",
+      "length_start": 0,
+      "length_end": 8,
+      "length_byte_order": "big",
+      "checksum_algorithm": "CRC16/MODBUS",
+      "checksum_start": 0,
+      "checksum_end": 7,
+      "checksum_byte_order": "big",
+      "description": ""
+    },
+    {
+      "name": "流水号",
+      "hex_value": "0001",
+      "byte_count": 2,
+      "field_type": "数据",
+      "description": ""
+    },
+    {
+      "name": "设备地址",
+      "hex_value": "01",
+      "byte_count": 1,
+      "field_type": "数据",
+      "description": ""
+    },
+    {
+      "name": "数据长度",
+      "hex_value": "",
+      "byte_count": 2,
+      "field_type": "长度",
+      "length_start": 0,
+      "length_end": 8,
+      "length_byte_order": "big",
+      "checksum_algorithm": "CRC16/MODBUS",
+      "checksum_start": 0,
+      "checksum_end": 7,
+      "checksum_byte_order": "big",
+      "description": "包括Header,Func,TotalLen,Payload,CRC16"
+    },
+    {
+      "name": "设备编码",
+      "hex_value": "01",
+      "byte_count": 1,
+      "field_type": "数据",
+      "description": ""
+    },
+    {
+      "name": "设备地址",
+      "hex_value": "00",
+      "byte_count": 1,
+      "field_type": "数据",
+      "description": ""
+    },
+    {
+      "name": "结果",
+      "hex_value": "01",
+      "byte_count": 1,
+      "field_type": "数据",
+      "parse_mode": "位解析",
+      "enum_mappings": [
+        {
+          "value": 1,
+          "label": "成功"
+        },
+        {
+          "value": 0,
+          "label": "失败"
+        },
+        {
+          "value": 2,
+          "label": "1233"
+        }
+      ],
+      "bit_flags": [],
+      "length_start": 0,
+      "length_end": 8,
+      "length_byte_order": "big",
+      "checksum_algorithm": "CRC16/MODBUS",
+      "checksum_start": 0,
+      "checksum_end": 7,
+      "checksum_byte_order": "big",
+      "description": "范围[0,1] 0表示失败，1表示成功"
+    },
+    {
+      "name": "CRC校验",
+      "hex_value": "0000",
+      "byte_count": 2,
+      "field_type": "校验",
+      "length_start": 0,
+      "length_end": 8,
+      "length_byte_order": "big",
+      "checksum_algorithm": "CRC16/MODBUS",
+      "checksum_start": 0,
+      "checksum_end": 7,
+      "checksum_byte_order": "big",
+      "description": "（不包括CRC16）的标准CRC16校验码（高位在前，低位在后）"
+    }
+  ]
+}
