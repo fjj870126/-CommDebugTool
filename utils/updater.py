@@ -127,18 +127,31 @@ def install_update(local_path: str):
                 zf.extractall(extract_dir)
 
             if sys_plat == 'Darwin':
-                binary = os.path.join(extract_dir, 'CommDebugTool')
+                new_binary = os.path.join(extract_dir, 'CommDebugTool')
             elif sys_plat == 'Windows':
-                binary = os.path.join(extract_dir, 'CommDebugTool.exe')
+                new_binary = os.path.join(extract_dir, 'CommDebugTool.exe')
             else:
-                binary = os.path.join(extract_dir, 'CommDebugTool')
+                new_binary = os.path.join(extract_dir, 'CommDebugTool')
 
-            if os.path.exists(binary):
-                os.chmod(binary, 0o755)
-                subprocess.Popen([binary])
+            if not os.path.exists(new_binary):
+                subprocess.Popen(['open', extract_dir])
+                sys.exit(0)
+
+            os.chmod(new_binary, 0o755)
+            current = sys.argv[0]
+
+            if getattr(sys, 'frozen', False):
+                current = sys.executable
+
+            if os.path.exists(current):
+                import stat
+                os.chmod(current, stat.S_IWUSR | stat.S_IRUSR | stat.S_IXUSR)
+                shutil.copy2(new_binary, current)
+                subprocess.Popen([current])
                 sys.exit(0)
             else:
-                subprocess.Popen(['open', extract_dir])
+                subprocess.Popen([new_binary])
+                sys.exit(0)
         elif sys_plat == 'Darwin' and local_path.endswith('.dmg'):
             subprocess.Popen(['open', local_path])
         elif sys_plat == 'Windows':
@@ -165,7 +178,7 @@ def show_update_dialog(parent, info: dict, config_update: dict = None):
     ph = parent.winfo_height()
     px = parent.winfo_rootx()
     py = parent.winfo_rooty()
-    w, h = 480, 420
+    w, h = 500, 480
     dialog.geometry(f'{w}x{h}+{px + (pw - w) // 2}+{py + (ph - h) // 2}')
     dialog.deiconify()
 
@@ -210,12 +223,15 @@ def show_update_dialog(parent, info: dict, config_update: dict = None):
         download_btn.configure(state=tk.DISABLED)
         cancel_btn.configure(state=tk.DISABLED)
 
-        progress_bar = ttk.Progressbar(btn_frame, mode='determinate')
-        progress_label = ttk.Label(btn_frame, text='0%', font=('', 9))
+        progress_bar = ttk.Progressbar(btn_frame, mode='indeterminate')
+        progress_label = ttk.Label(btn_frame, text='', font=('', 9))
         progress_label.pack(side=tk.RIGHT, padx=(4, 0))
         progress_bar.pack(fill=tk.X, pady=(4, 0))
+        progress_bar.start(10)
 
         def update_progress(ratio):
+            progress_bar.configure(mode='determinate')
+            progress_bar.stop()
             progress_bar['value'] = ratio * 100
             progress_label.configure(text=f'{ratio * 100:.0f}%')
             dialog.update_idletasks()
