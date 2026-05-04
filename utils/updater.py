@@ -314,7 +314,8 @@ def show_update_dialog(parent, info: dict, config_update: dict = None):
     title_text = f'发现新版本 v{info["version"]}（来源: {info["source"]}）'
     ttk.Label(main_frame, text=title_text, font=('', 12, 'bold')).pack(anchor=tk.W, pady=(0, 8))
 
-    ttk.Label(main_frame, text=f'当前版本: v{APP_VERSION}  →  新版本: v{info["version"]}',
+    sys_info = f'{platform.system()} {platform.machine()}'
+    ttk.Label(main_frame, text=f'当前版本: v{APP_VERSION}  →  新版本: v{info["version"]}  |  系统: {sys_info}',
               font=('', 9)).pack(anchor=tk.W, pady=(0, 6))
 
     body_frame = ttk.LabelFrame(main_frame, text=' 更新内容 ', padding=6)
