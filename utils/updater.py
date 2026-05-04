@@ -149,38 +149,21 @@ def install_update(local_path: str):
                 sys.exit(0)
 
             os.chmod(new_binary, 0o755)
-            current = sys.argv[0]
 
-            if getattr(sys, 'frozen', False):
-                current = sys.executable
-
-            if sys_plat == 'Darwin' and '.app' in current:
-                current = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(current))), 'CommDebugTool.app')
-
-            if os.path.exists(current):
-                import stat
-                backup = current + '.bak'
-                try:
-                    os.remove(backup)
-                except:
-                    pass
-                os.rename(current, backup)
-                shutil.copy2(new_binary, current)
-                os.chmod(current, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
-                if sys_plat == 'Darwin':
-                    subprocess.run(['xattr', '-dr', 'com.apple.quarantine', current],
+            if sys_plat == 'Darwin':
+                app_path = os.path.join(extract_dir, 'CommDebugTool.app')
+                if os.path.exists(app_path):
+                    subprocess.run(['xattr', '-dr', 'com.apple.quarantine', app_path],
                                    capture_output=True)
-                    if '.app' in current:
-                        subprocess.run(['codesign', '--force', '--deep', '--sign', '-', current],
-                                       capture_output=True)
-                    else:
-                        subprocess.run(['codesign', '--force', '--deep', '--sign', '-', current],
-                                       capture_output=True)
-                subprocess.Popen([current])
-                try:
-                    os.remove(backup)
-                except:
-                    pass
+                    subprocess.run(['codesign', '--force', '--deep', '--sign', '-', app_path],
+                                   capture_output=True)
+                    subprocess.Popen(['open', app_path])
+                else:
+                    subprocess.run(['xattr', '-d', 'com.apple.quarantine', new_binary],
+                                   capture_output=True)
+                    subprocess.run(['codesign', '--force', '--deep', '--sign', '-', new_binary],
+                                   capture_output=True)
+                    subprocess.Popen([new_binary])
                 sys.exit(0)
             else:
                 subprocess.Popen([new_binary])
