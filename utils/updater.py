@@ -224,8 +224,12 @@ def install_update(local_path: str):
                 if os.path.exists(new_binary):
                     os.chmod(new_binary, 0o755)
                     subprocess.Popen([new_binary])
-                else:
-                    subprocess.Popen(['open', extract_dir])
+                    sys.exit(0)
+                # Windows 上如果找不到 .exe，说明下载的是其他平台的包
+                messagebox.showwarning('系统不匹配',
+                    '下载的安装包不适用于 Windows 系统，\n'
+                    '请前往 Gitee 发布页面下载 Windows 版本:\n'
+                    f'https://gitee.com/{OWNER}/{REPO}/releases')
                 sys.exit(0)
             else:
                 new_binary = os.path.join(extract_dir, 'CommDebugTool')
