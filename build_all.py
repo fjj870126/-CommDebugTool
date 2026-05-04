@@ -11,6 +11,9 @@ import shutil
 import zipfile
 import tarfile
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from utils.version import APP_VERSION
+
 
 def get_platform_info():
     system = platform.system().lower()
@@ -149,8 +152,11 @@ def main():
             with open(os.path.join(info_dir, 'Info.plist'), 'w') as f:
                 f.write(plist)
 
-            dmg_name = f'CommDebugTool-{plat}.dmg'
-            dmg_path = os.path.join('dist', dmg_name)
+            ver_dir = os.path.join('dist', f'v{APP_VERSION}')
+            os.makedirs(ver_dir, exist_ok=True)
+
+            dmg_name = f'CommDebugTool-{APP_VERSION}-{plat}.dmg'
+            dmg_path = os.path.join(ver_dir, dmg_name)
             subprocess.run([
                 'hdiutil', 'create', '-volname', 'CommDebugTool',
                 '-srcfolder', app_tmp,
@@ -158,8 +164,8 @@ def main():
             ], check=True)
             print(f'   生成: {dmg_path}')
 
-            zip_name = f'CommDebugTool-{plat}.zip'
-            zip_path = os.path.join('dist', zip_name)
+            zip_name = f'CommDebugTool-{APP_VERSION}-{plat}.zip'
+            zip_path = os.path.join(ver_dir, zip_name)
             create_zip(zip_path, app_tmp)
             print(f'   生成: {zip_path}')
 
@@ -167,7 +173,6 @@ def main():
             if os.path.exists(dist_dir):
                 shutil.rmtree(dist_dir)
             print(f'   生成: {zip_path}')
-            shutil.rmtree(dist_dir)
     elif platform.system() == 'Windows':
         exe_glob = os.path.join(dist_dir, 'CommDebugTool.exe')
         if os.path.exists(exe_glob):
