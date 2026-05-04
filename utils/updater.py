@@ -223,29 +223,44 @@ def show_update_dialog(parent, info: dict, config_update: dict = None):
         download_btn.configure(state=tk.DISABLED)
         cancel_btn.configure(state=tk.DISABLED)
 
-        progress_bar = ttk.Progressbar(btn_frame, mode='indeterminate')
-        progress_label = ttk.Label(btn_frame, text='', font=('', 9))
-        progress_label.pack(side=tk.RIGHT, padx=(4, 0))
-        progress_bar.pack(fill=tk.X, pady=(4, 0))
+        progress_win = tk.Toplevel(dialog)
+        progress_win.title('下载更新')
+        progress_win.transient(dialog)
+        progress_win.grab_set()
+        progress_win.geometry('+{}+{}'.format(dialog.winfo_rootx() + 50, dialog.winfo_rooty() + 100))
+        progress_win.resizable(False, False)
+
+        pf = ttk.Frame(progress_win, padding=16)
+        pf.pack(fill=tk.BOTH, expand=True)
+
+        ttk.Label(pf, text='正在下载更新...', font=('', 10)).pack(anchor=tk.W, pady=(0, 8))
+
+        progress_bar = ttk.Progressbar(pf, mode='indeterminate', length=350)
+        progress_bar.pack(fill=tk.X, pady=(0, 4))
         progress_bar.start(10)
+
+        progress_label = ttk.Label(pf, text='', font=('', 9))
+        progress_label.pack(anchor=tk.E)
 
         def update_progress(ratio):
             progress_bar.configure(mode='determinate')
             progress_bar.stop()
             progress_bar['value'] = ratio * 100
             progress_label.configure(text=f'{ratio * 100:.0f}%')
-            dialog.update_idletasks()
+            progress_win.update_idletasks()
 
         def do_download():
             try:
                 path = download_update(asset, progress_callback=update_progress)
                 download_path[0] = path
+                progress_win.destroy()
                 dialog.after(0, lambda: on_download_done(path))
             except Exception as e:
+                progress_win.destroy()
                 dialog.after(0, lambda: on_download_error(str(e)))
 
+
         def on_download_done(path):
-            progress_label.configure(text='下载完成')
             if messagebox.askyesno('确认', '下载完成，是否立即安装并重启？', parent=dialog):
                 install_update(path)
             else:
@@ -256,7 +271,6 @@ def show_update_dialog(parent, info: dict, config_update: dict = None):
             messagebox.showerror('下载失败', str(err), parent=dialog)
             download_btn.configure(state=tk.NORMAL)
             cancel_btn.configure(state=tk.NORMAL)
-            progress_bar.pack_forget()
 
         threading.Thread(target=do_download, daemon=True).start()
 
