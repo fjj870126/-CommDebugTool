@@ -76,13 +76,18 @@ def check_update(timeout: int = 5) -> dict:
 def _select_asset(assets: list) -> dict:
     """根据当前平台选择合适的下载包"""
     sys_plat = platform.system()
+    # 优先选择 zip（OTA 更新用）
     for asset in assets:
         name = asset['name'].lower()
-        if sys_plat == 'Darwin' and (name.endswith('.dmg') or name.endswith('.zip')):
+        if name.endswith('.zip'):
             return asset
-        if sys_plat == 'Windows' and (name.endswith('.exe') or name.endswith('.zip')):
+    for asset in assets:
+        name = asset['name'].lower()
+        if sys_plat == 'Darwin' and name.endswith('.dmg'):
             return asset
-        if sys_plat == 'Linux' and (name.endswith('.tar.gz') or name.endswith('.zip') or name.endswith('.AppImage')):
+        if sys_plat == 'Windows' and name.endswith('.exe'):
+            return asset
+        if sys_plat == 'Linux' and (name.endswith('.tar.gz') or name.endswith('.AppImage')):
             return asset
     return assets[0] if assets else None
 

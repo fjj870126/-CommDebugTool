@@ -121,19 +121,15 @@ def main():
     if platform.system() == 'Darwin':
         binary_path = os.path.join(dist_dir, 'CommDebugTool')
         if os.path.exists(binary_path):
-            dmg_name = f'CommDebugTool-{plat}.dmg'
-            dmg_path = os.path.join('dist', dmg_name)
-            dmg_tmp = os.path.join('dist', '_dmg_tmp')
-            if os.path.exists(dmg_tmp):
-                shutil.rmtree(dmg_tmp)
-            os.makedirs(dmg_tmp)
-
-            app_dir = os.path.join(dmg_tmp, 'CommDebugTool.app', 'Contents', 'MacOS')
+            app_tmp = os.path.join('dist', '_app_tmp')
+            if os.path.exists(app_tmp):
+                shutil.rmtree(app_tmp)
+            app_dir = os.path.join(app_tmp, 'CommDebugTool.app', 'Contents', 'MacOS')
             os.makedirs(app_dir)
             shutil.copy2(binary_path, os.path.join(app_dir, 'CommDebugTool'))
             os.chmod(os.path.join(app_dir, 'CommDebugTool'), 0o755)
 
-            resources_dir = os.path.join(dmg_tmp, 'CommDebugTool.app', 'Contents', 'Resources')
+            resources_dir = os.path.join(app_tmp, 'CommDebugTool.app', 'Contents', 'Resources')
             os.makedirs(resources_dir)
             icon_src = 'resources/app_icon.icns'
             if os.path.exists(icon_src):
@@ -149,22 +145,27 @@ def main():
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>LSUIElement</key><true/>
 </dict></plist>'''
-            info_dir = os.path.join(dmg_tmp, 'CommDebugTool.app', 'Contents')
+            info_dir = os.path.join(app_tmp, 'CommDebugTool.app', 'Contents')
             with open(os.path.join(info_dir, 'Info.plist'), 'w') as f:
                 f.write(plist)
 
+            dmg_name = f'CommDebugTool-{plat}.dmg'
+            dmg_path = os.path.join('dist', dmg_name)
             subprocess.run([
                 'hdiutil', 'create', '-volname', 'CommDebugTool',
-                '-srcfolder', dmg_tmp,
+                '-srcfolder', app_tmp,
                 '-ov', '-format', 'UDZO', dmg_path
             ], check=True)
-            shutil.rmtree(dmg_tmp)
-            shutil.rmtree(dist_dir)
             print(f'   生成: {dmg_path}')
-        else:
+
             zip_name = f'CommDebugTool-{plat}.zip'
             zip_path = os.path.join('dist', zip_name)
-            create_zip(zip_path, dist_dir)
+            create_zip(zip_path, app_tmp)
+            print(f'   生成: {zip_path}')
+
+            shutil.rmtree(app_tmp)
+            if os.path.exists(dist_dir):
+                shutil.rmtree(dist_dir)
             print(f'   生成: {zip_path}')
             shutil.rmtree(dist_dir)
     elif platform.system() == 'Windows':
