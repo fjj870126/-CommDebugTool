@@ -117,17 +117,32 @@ def check_update(timeout: int = 5) -> dict:
 
 def _select_asset(assets: list) -> dict:
     sys_plat = platform.system()
-    for asset in assets:
-        name = asset['name'].lower()
-        if name.endswith('.zip'):
-            return asset
+    plat_keywords = {'Darwin': 'macos', 'Windows': 'windows', 'Linux': 'linux'}
+    keyword = plat_keywords.get(sys_plat, '')
+
+    # 优先匹配包含本平台名称的 zip
+    if keyword:
+        for asset in assets:
+            name = asset['name'].lower()
+            if name.endswith('.zip') and keyword in name:
+                return asset
+
+    # 其次匹配包含本平台名称的安装包
     for asset in assets:
         name = asset['name'].lower()
         if sys_plat == 'Darwin' and name.endswith('.dmg'):
-            return asset
+            if not keyword or keyword in name:
+                return asset
         if sys_plat == 'Windows' and name.endswith('.exe'):
             return asset
         if sys_plat == 'Linux' and (name.endswith('.tar.gz') or name.endswith('.AppImage')):
+            if not keyword or keyword in name:
+                return asset
+
+    # 最后任意 zip
+    for asset in assets:
+        name = asset['name'].lower()
+        if name.endswith('.zip'):
             return asset
     return assets[0] if assets else None
 
