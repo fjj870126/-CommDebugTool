@@ -190,6 +190,8 @@ def build_windows(dist_dir, build_dir, plat):
 
     zip_name = f'CommDebugTool-{APP_VERSION}-{plat}.zip'
     zip_path = os.path.join(plat_dir_full, zip_name)
+    if os.path.exists(zip_path):
+        os.remove(zip_path)
     create_zip(zip_path, dist_dir)
     print(f'   生成: {zip_path}')
 
@@ -232,6 +234,8 @@ def build_linux(dist_dir, build_dir, plat):
 
     tar_name = f'CommDebugTool-{APP_VERSION}-{plat}.tar.gz'
     tar_path = os.path.join(plat_dir_full, tar_name)
+    if os.path.exists(tar_path):
+        os.remove(tar_path)
     with tarfile.open(tar_path, 'w:gz') as tf:
         tf.add(dist_dir, arcname='CommDebugTool')
     print(f'   生成: {tar_path}')
