@@ -78,23 +78,35 @@ def check_update(timeout: int = 5) -> dict:
             latest_tag = tags[0]
             remote_ver = _parse_version(latest_tag)
             local_ver = _parse_version(APP_VERSION)
-            # 从页面提取附件文件名和下载链接
-            assets = []
-            dl_items = re.findall(r'/releases/download/v[\d.]+/[^"<>]+', html)
-            seen = set()
-            for path in dl_items:
-                name = path.rsplit('/', 1)[-1] if '/' in path else path
-                if name not in seen and not name.endswith('.zip') is False:
-                    seen.add(name)
-                    assets.append({'name': name, 'url': f'https://gitee.com{path}', 'size': 0})
-            # 过滤掉源码压缩包，只保留上传的附件
-            assets = [a for a in assets if not a['name'].startswith('v') or not (a['name'].endswith('.zip') or a['name'].endswith('.tar.gz'))]
-            # 保留上传的附件
-            assets = [a for a in assets if not (a['name'].startswith('v') and (a['name'].endswith('.zip') or a['name'].endswith('.tar.gz')))]
+            # 尝试从 API 获取更新内容和附件
+            try:
+                api_url = f'https://gitee.com/api/v5/repos/{OWNER}/{REPO}/releases/tags/{latest_tag}'
+                api_req = Request(api_url, headers={'User-Agent': 'CommDebugTool', 'Accept': 'application/json'})
+                with urlopen(api_req, timeout=5) as api_resp:
+                    api_data = json.loads(api_resp.read().decode('utf-8'))
+                body = api_data.get('body', '')
+                assets = []
+                for asset in api_data.get('assets', []):
+                    assets.append({
+                        'name': asset.get('name', ''),
+                        'url': asset.get('browser_download_url', ''),
+                        'size': asset.get('size', 0),
+                    })
+            except Exception:
+                body = ''
+                assets = []
+                dl_items = re.findall(r'/releases/download/v[\d.]+/[^"<>]+', html)
+                seen = set()
+                for path in dl_items:
+                    name = path.rsplit('/', 1)[-1] if '/' in path else path
+                    if name not in seen and not name.endswith('.zip') is False:
+                        seen.add(name)
+                        assets.append({'name': name, 'url': f'https://gitee.com/{OWNER}/{REPO}{path}', 'size': 0})
+                assets = [a for a in assets if not (a['name'].startswith('v') and (a['name'].endswith('.zip') or a['name'].endswith('.tar.gz')))]
             return {
                 'has_update': remote_ver > local_ver,
                 'version': latest_tag.lstrip('v'),
-                'body': '',
+                'body': body,
                 'source': 'Gitee',
                 'assets': assets,
             }
