@@ -62,8 +62,31 @@ def check_update(timeout: int = 5) -> dict:
                 'source': source['name'],
                 'assets': assets,
             }
+        except URLError as e:
+            if hasattr(e, 'code') and e.code == 403:
+                continue
         except Exception:
             continue
+    # API 失败时，尝试从 Release 页面抓取版本信息
+    try:
+        html_url = f'https://gitee.com/{OWNER}/{REPO}/releases'
+        req = Request(html_url, headers={'User-Agent': 'CommDebugTool'})
+        with urlopen(req, timeout=timeout) as resp:
+            html = resp.read().decode('utf-8')
+        tags = re.findall(r'v\d+\.\d+\.\d+', html)
+        if tags:
+            latest_tag = tags[0]
+            remote_ver = _parse_version(latest_tag)
+            local_ver = _parse_version(APP_VERSION)
+            return {
+                'has_update': remote_ver > local_ver,
+                'version': latest_tag.lstrip('v'),
+                'body': '',
+                'source': 'Gitee',
+                'assets': [],
+            }
+    except Exception:
+        pass
     return None
 
 
