@@ -134,44 +134,42 @@ def install_update(local_path: str):
                 zf.extractall(extract_dir)
 
             if sys_plat == 'Darwin':
-                new_binary = os.path.join(extract_dir, 'CommDebugTool.app', 'Contents', 'MacOS', 'CommDebugTool')
-                if not os.path.exists(new_binary):
-                    new_binary = os.path.join(extract_dir, 'CommDebugTool')
-                subprocess.run(['xattr', '-dr', 'com.apple.quarantine', extract_dir],
-                               capture_output=True)
-                subprocess.run(['codesign', '--force', '--deep', '--sign', '-', new_binary],
-                               capture_output=True)
-            elif sys_plat == 'Windows':
-                new_binary = os.path.join(extract_dir, 'CommDebugTool.exe')
-            else:
-                new_binary = os.path.join(extract_dir, 'CommDebugTool')
-
-            if not os.path.exists(new_binary):
-                subprocess.Popen(['open', extract_dir])
-                sys.exit(0)
-
-            os.chmod(new_binary, 0o755)
-
-            if sys_plat == 'Darwin':
                 app_path = os.path.join(extract_dir, 'CommDebugTool.app')
                 if os.path.exists(app_path):
-                    subprocess.run(['xattr', '-dr', 'com.apple.quarantine', app_path],
+                    target_app = os.path.join('/Applications', 'CommDebugTool.app')
+                    if os.path.exists(target_app):
+                        shutil.rmtree(target_app)
+                    shutil.copytree(app_path, target_app)
+                    subprocess.run(['xattr', '-dr', 'com.apple.quarantine', target_app],
                                    capture_output=True)
-                    subprocess.run(['codesign', '--force', '--deep', '--sign', '-', app_path],
+                    subprocess.run(['codesign', '--force', '--deep', '--sign', '-', target_app],
                                    capture_output=True)
-                    subprocess.Popen(['open', app_path])
+                    subprocess.Popen(['open', target_app])
                 else:
+                    new_binary = os.path.join(extract_dir, 'CommDebugTool')
                     subprocess.run(['xattr', '-d', 'com.apple.quarantine', new_binary],
                                    capture_output=True)
                     subprocess.run(['codesign', '--force', '--deep', '--sign', '-', new_binary],
                                    capture_output=True)
                     subprocess.Popen([new_binary])
-                # 延迟清理旧文件
                 subprocess.Popen(['bash', '-c',
                     f'sleep 5 && rm -rf {extract_parent}'],
                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 sys.exit(0)
+            elif sys_plat == 'Windows':
+                new_binary = os.path.join(extract_dir, 'CommDebugTool.exe')
+                if not os.path.exists(new_binary):
+                    subprocess.Popen(['open', extract_dir])
+                    sys.exit(0)
+                os.chmod(new_binary, 0o755)
+                subprocess.Popen([new_binary])
+                sys.exit(0)
             else:
+                new_binary = os.path.join(extract_dir, 'CommDebugTool')
+                if not os.path.exists(new_binary):
+                    subprocess.Popen(['open', extract_dir])
+                    sys.exit(0)
+                os.chmod(new_binary, 0o755)
                 subprocess.Popen([new_binary])
                 sys.exit(0)
         elif sys_plat == 'Darwin' and local_path.endswith('.dmg'):
