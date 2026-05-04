@@ -192,7 +192,8 @@ def build_windows(dist_dir, build_dir, plat):
     zip_path = os.path.join(plat_dir_full, zip_name)
     if os.path.exists(zip_path):
         os.remove(zip_path)
-    create_zip(zip_path, dist_dir)
+    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+        zf.write(exe_path, 'CommDebugTool.exe')
     print(f'   生成: {zip_path}')
 
     if os.path.exists(dist_dir):

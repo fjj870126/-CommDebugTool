@@ -319,7 +319,7 @@ def show_update_dialog(parent, info: dict, config_update: dict = None):
     if matched_asset:
         ttk.Label(main_frame,
                   text=f'即将下载: {matched_asset["name"]}',
-                  font=('', 8), foreground='gray').pack(anchor=tk.W, pady=(0, 4))
+                  font=('', 9)).pack(anchor=tk.W, pady=(0, 4))
 
     body_frame = ttk.LabelFrame(main_frame, text=' 更新内容 ', padding=6)
     body_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 8))
