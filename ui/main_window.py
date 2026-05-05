@@ -143,6 +143,9 @@ class MainWindow:
         # 文件菜单
         file_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label='文件', menu=file_menu)
+        file_menu.add_command(label='📁 保存工程', command=self._save_project, accelerator='Ctrl+S')
+        file_menu.add_command(label='📂 加载工程', command=self._load_project, accelerator='Ctrl+O')
+        file_menu.add_separator()
         file_menu.add_command(label='退出', command=self._on_close, accelerator='Ctrl+Q')
 
         # 工具菜单
@@ -849,6 +852,118 @@ class MainWindow:
         except Exception:
             pass
         return {'ignored_versions': []}
+
+    def _save_project(self):
+        """保存工程文件"""
+        from tkinter import filedialog
+        file_path = filedialog.asksaveasfilename(
+            title='保存工程',
+            defaultextension='.cdt',
+            filetypes=[('通信调试工程文件', '*.cdt'), ('所有文件', '*.*')])
+        if not file_path:
+            return
+        try:
+            sash_ratio = None
+            try:
+                total_width = self._main_paned.winfo_width()
+                if total_width > 0:
+                    sash_pos = self._main_paned.sashpos(0)
+                    sash_ratio = max(0.1, min(0.9, sash_pos / total_width))
+            except Exception:
+                pass
+            left_sash_ratio = None
+            try:
+                total_height = self._left_paned.winfo_height()
+                if total_height > 0:
+                    sash_pos = self._left_paned.sashpos(0)
+                    left_sash_ratio = max(0.1, min(0.9, sash_pos / total_height))
+            except Exception:
+                pass
+
+            project = {
+                'version': f'v{APP_VERSION}',
+                'comm': self.comm_panel.get_settings(),
+                'connections': self.comm_panel.get_connections_save_data(),
+                'tools': self.tools_container.get_settings(),
+                'shortcuts': self.tools_container.get_send_panel().get_shortcuts_data(),
+                'settings': self._settings_dialog.get_all_settings() if hasattr(self, '_settings_dialog') else {},
+                'window': {
+                    'width': self.root.winfo_width(),
+                    'height': self.root.winfo_height(),
+                },
+                'sash_ratio': sash_ratio,
+                'left_sash_ratio': left_sash_ratio,
+                'current_panel': self.tools_container._current_panel_name,
+            }
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(project, f, ensure_ascii=False, indent=2)
+            self.log_panel.log_info(f'工程已保存: {os.path.basename(file_path)}')
+        except Exception as e:
+            messagebox.showerror('保存失败', str(e))
+
+    def _load_project(self):
+        """加载工程文件"""
+        from tkinter import filedialog
+        file_path = filedialog.askopenfilename(
+            title='加载工程',
+            filetypes=[('通信调试工程文件', '*.cdt'), ('所有文件', '*.*')])
+        if not file_path:
+            return
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                project = json.load(f)
+        except Exception as e:
+            messagebox.showerror('加载失败', f'文件读取失败: {e}')
+            return
+
+        try:
+            # 加载通信设置
+            comm_settings = project.get('comm', {})
+            if comm_settings:
+                self.comm_panel.load_settings(comm_settings)
+
+            # 加载连接记录
+            connections = project.get('connections', [])
+            if connections:
+                self.comm_panel.load_connections_save_data(connections)
+
+            # 加载工具设置
+            tools = project.get('tools', {})
+            if tools:
+                self.tools_container.load_settings(tools)
+
+            # 加载快捷键
+            shortcuts = project.get('shortcuts', [])
+            if shortcuts:
+                self.tools_container.get_send_panel().load_shortcuts_data(shortcuts)
+
+            # 加载设置
+            settings = project.get('settings', {})
+            if settings:
+                self._settings_dialog = SettingsDialog(self.root, settings=settings)
+                self.apply_settings(settings)
+
+            # 恢复窗口大小
+            win = project.get('window', {})
+            if win.get('width') and win.get('height'):
+                self.root.geometry(f'{win["width"]}x{win["height"]}')
+
+            # 恢复分割比例
+            sash_ratio = project.get('sash_ratio')
+            if sash_ratio is not None:
+                self.root.after(200, lambda sr=sash_ratio: self._set_initial_sash(self._main_paned, sr))
+            left_sash_ratio = project.get('left_sash_ratio')
+            if left_sash_ratio is not None:
+                self.root.after(200, lambda sr=left_sash_ratio: self._set_initial_sash(self._left_paned, sr, vertical=True))
+
+            # 恢复选中的面板
+            current_panel = project.get('current_panel')
+            if current_panel:
+                self.root.after(300, lambda: self.tools_container.switch_to_panel(current_panel))
+
+            self.log_panel.log_info(f'工程已加载: {os.path.basename(file_path)}')
+        except Exception as e:
+            messagebox.showerror('加载失败', f'工程数据加载失败: {e}')
 
     def _apply_ttk_theme_from_settings(self):
         ttk_theme = self._settings_dialog.get_setting('ttk_theme', 'clam')
