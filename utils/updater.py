@@ -32,6 +32,12 @@ UPDATE_SOURCES = [
 OWNER = 'fjj20800959'
 REPO = 'comm-debug-tool'
 
+# Gitee 个人访问令牌（可选，用于提高 API 限流额度）
+# 生成地址: https://gitee.com/profile/personal_access_tokens
+# 不需要任何权限，只用于读取公开仓库信息
+# 填上后可避免 403 Rate Limit 问题
+GITEE_TOKEN = '5e553f7d87a05998f697b9be36487864'
+
 
 def _parse_version(tag: str) -> tuple:
     nums = re.findall(r'\d+', tag)
@@ -42,7 +48,10 @@ def check_update(timeout: int = 5) -> dict:
     for source in UPDATE_SOURCES:
         try:
             url = source['api_url'].format(owner=OWNER, repo=REPO)
-            req = Request(url, headers={'User-Agent': 'CommDebugTool', 'Accept': 'application/json'})
+            headers = {'User-Agent': 'CommDebugTool', 'Accept': 'application/json'}
+            if GITEE_TOKEN and 'gitee.com' in url:
+                url += f'?access_token={GITEE_TOKEN}'
+            req = Request(url, headers=headers)
             with urlopen(req, timeout=timeout) as resp:
                 data = json.loads(resp.read().decode('utf-8'))
             tag = data.get('tag_name', '')
@@ -81,6 +90,8 @@ def check_update(timeout: int = 5) -> dict:
             # 尝试从 API 获取更新内容和附件
             try:
                 api_url = f'https://gitee.com/api/v5/repos/{OWNER}/{REPO}/releases/tags/{latest_tag}'
+                if GITEE_TOKEN:
+                    api_url += f'?access_token={GITEE_TOKEN}'
                 api_req = Request(api_url, headers={'User-Agent': 'CommDebugTool', 'Accept': 'application/json'})
                 with urlopen(api_req, timeout=5) as api_resp:
                     api_data = json.loads(api_resp.read().decode('utf-8'))
