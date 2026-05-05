@@ -100,6 +100,31 @@ class CommPanel(ttk.LabelFrame):
         add_entry_context_menu(self.local_port_entry)
         ToolTip(self.local_port_entry, text_func=lambda: '0 表示系统自动分配')
 
+        # TCP Keepalive 设置
+        self.tcp_ka_frame = ttk.Frame(self.row0)
+        self.ka_enable_var = tk.BooleanVar(value=False)
+        self.ka_idle_var = tk.StringVar(value='60')
+        self.ka_interval_var = tk.StringVar(value='10')
+        self.ka_count_var = tk.StringVar(value='5')
+        ttk.Checkbutton(self.tcp_ka_frame, text='Keepalive', variable=self.ka_enable_var,
+                        command=self._on_ka_toggle).pack(side=tk.LEFT)
+        self.ka_idle_label = ttk.Label(self.tcp_ka_frame, text='空闲(秒):')
+        self.ka_idle_label.pack(side=tk.LEFT, padx=(4, 0))
+        self.ka_idle_entry = ttk.Entry(self.tcp_ka_frame, textvariable=self.ka_idle_var, width=4)
+        self.ka_idle_entry.pack(side=tk.LEFT, padx=(2, 0))
+        self.ka_int_label = ttk.Label(self.tcp_ka_frame, text='间隔(秒):')
+        self.ka_int_label.pack(side=tk.LEFT, padx=(4, 0))
+        self.ka_int_entry = ttk.Entry(self.tcp_ka_frame, textvariable=self.ka_interval_var, width=4)
+        self.ka_int_entry.pack(side=tk.LEFT, padx=(2, 0))
+        self.ka_cnt_label = ttk.Label(self.tcp_ka_frame, text='次数:')
+        self.ka_cnt_label.pack(side=tk.LEFT, padx=(4, 0))
+        self.ka_cnt_entry = ttk.Entry(self.tcp_ka_frame, textvariable=self.ka_count_var, width=3)
+        self.ka_cnt_entry.pack(side=tk.LEFT, padx=(2, 0))
+        ToolTip(self.ka_idle_entry, text_func=lambda: '无数据后多久开始发送探测包')
+        ToolTip(self.ka_int_entry, text_func=lambda: '探测包发送间隔')
+        ToolTip(self.ka_cnt_entry, text_func=lambda: '连续未回复次数后断开连接')
+        self._update_ka_visibility()
+
         # --- 参数行容器 ---
         self.param_row = ttk.Frame(self)
 
@@ -443,6 +468,7 @@ class CommPanel(ttk.LabelFrame):
         self.udp_frame.pack_forget()
         self.param_row.pack_forget()
         self.serial_frame.pack_forget()
+        self.tcp_ka_frame.pack_forget()
 
         if proto == '串口':
             self.param_row.pack(fill=tk.X, pady=(2, 0), after=self.row0)
@@ -452,6 +478,23 @@ class CommPanel(ttk.LabelFrame):
             self.net_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, in_=self.row0)
             if proto == 'UDP':
                 self.udp_frame.pack(side=tk.LEFT, in_=self.row0)
+            if proto == 'TCP客户端':
+                self.tcp_ka_frame.pack(side=tk.LEFT, in_=self.row0, padx=(4, 0))
+        self._update_ka_visibility()
+
+    def _on_ka_toggle(self):
+        self._update_ka_visibility()
+
+    def _update_ka_visibility(self):
+        show = self.proto_var.get() == 'TCP客户端' and self.ka_enable_var.get()
+        state = tk.NORMAL if show else tk.DISABLED
+        for w in (self.ka_idle_label, self.ka_idle_entry,
+                  self.ka_int_label, self.ka_int_entry,
+                  self.ka_cnt_label, self.ka_cnt_entry):
+            try:
+                w.configure(state=state)
+            except Exception:
+                pass
 
     def _refresh_ips(self):
         self._local_ips = get_local_ips()
@@ -968,6 +1011,13 @@ class CommPanel(ttk.LabelFrame):
             config['port'] = int(self.port_var.get())
             if proto == 'UDP':
                 config['local_port'] = int(self.local_port_var.get())
+            if proto == 'TCP客户端':
+                config['keepalive'] = {
+                    'enabled': self.ka_enable_var.get(),
+                    'idle': int(self.ka_idle_var.get()),
+                    'interval': int(self.ka_interval_var.get()),
+                    'count': int(self.ka_count_var.get()),
+                }
         return config
 
     def get_settings(self) -> dict:

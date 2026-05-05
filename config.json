@@ -11,7 +11,7 @@
     "stopbits": "1"
   },
   "tools": {
-    "_current_panel": "协议解析",
+    "_current_panel": "导出",
     "send": {
       "mode": "ascii",
       "input": "11 22 33 44",
@@ -571,6 +571,12 @@
         }
       ],
       "auto_parse": true
+    },
+    "export": {
+      "range": "全部日志",
+      "format": "TXT",
+      "include_time": true,
+      "include_raw": true
     }
   },
   "connections": [
@@ -586,6 +592,23 @@
         "protocol": "TCP服务端",
         "host": "192.168.2.113",
         "port": 8081
+      }
+    },
+    {
+      "key": "串口 /dev/cu.HUAWEIFreeClip2",
+      "addr": "/dev/cu.HUAWEIFreeClip2 115200",
+      "tx": 0,
+      "rx": 0,
+      "status": "已断开",
+      "clients": {},
+      "switches": {},
+      "config": {
+        "protocol": "串口",
+        "port": "/dev/cu.HUAWEIFreeClip2",
+        "baudrate": 115200,
+        "bytesize": 8,
+        "parity": "N",
+        "stopbits": 1
       }
     }
   ],
@@ -607,10 +630,10 @@
     "status_bar": true
   },
   "window": {
-    "width": 1646,
+    "width": 1712,
     "height": 1198
   },
-  "sash_ratio": 0.6291309669522643,
+  "sash_ratio": 0.6188235294117647,
   "left_sash_ratio": 0.39331619537275064,
   "mqtt": null,
   "update": {

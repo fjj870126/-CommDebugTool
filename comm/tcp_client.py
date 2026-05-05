@@ -3,6 +3,7 @@
 import socket
 import threading
 import queue
+import struct
 
 
 class TcpClient:
@@ -19,20 +20,35 @@ class TcpClient:
     def connected(self) -> bool:
         return self._running and self.sock is not None
 
-    def connect(self, host: str, port: int, timeout: float = 5.0):
+    def connect(self, host: str, port: int, timeout: float = 5.0,
+                keepalive_idle: int = 0, keepalive_interval: int = 1, keepalive_count: int = 5):
         if self.connected:
             return
         if self.sock is not None:
             self.disconnect()
         threading.Thread(target=self._do_connect,
-                         args=(host, port, timeout), daemon=True).start()
+                         args=(host, port, timeout, keepalive_idle, keepalive_interval, keepalive_count),
+                         daemon=True).start()
 
-    def _do_connect(self, host: str, port: int, timeout: float):
+    def _do_connect(self, host: str, port: int, timeout: float,
+                    keepalive_idle: int, keepalive_interval: int, keepalive_count: int):
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(timeout)
             sock.connect((host, port))
             sock.settimeout(None)
+            # 设置 TCP Keepalive
+            if keepalive_idle > 0:
+                try:
+                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+                    if hasattr(socket, 'TCP_KEEPIDLE'):
+                        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, keepalive_idle)
+                    if hasattr(socket, 'TCP_KEEPINTVL'):
+                        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, keepalive_interval)
+                    if hasattr(socket, 'TCP_KEEPCNT'):
+                        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, keepalive_count)
+                except Exception:
+                    pass
             self.sock = sock
             self._running = True
             self._recv_thread = threading.Thread(target=self._recv_loop, daemon=True)

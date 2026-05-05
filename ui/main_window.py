@@ -369,7 +369,14 @@ class MainWindow:
                 new_client.set_on_disconnect(lambda k=conn_key: self._on_tcp_client_disconnect(k))
                 new_client.set_on_connect_done(
                     lambda success, err, k=conn_key: self._on_tcp_connect_done(success, err, k))
-                new_client.connect(config['host'], config['port'])
+                ka = config.get('keepalive', {})
+                if ka.get('enabled'):
+                    new_client.connect(config['host'], config['port'],
+                                       keepalive_idle=int(ka['idle']),
+                                       keepalive_interval=int(ka['interval']),
+                                       keepalive_count=int(ka['count']))
+                else:
+                    new_client.connect(config['host'], config['port'])
                 self._tcp_clients[conn_key] = new_client
                 self._connected_protocols[conn_key] = True
                 self.log_panel.log_info(
