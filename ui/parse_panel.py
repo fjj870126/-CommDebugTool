@@ -1,39 +1,40 @@
-"""协议解析面板 - 支持多协议加载，自动匹配并解析接收到的数据"""
+"""协议解析面板 - 支持多协议加载 + JSON 自动识别解析"""
 
 import copy
+import json
 import tkinter as tk
 from tkinter import ttk, messagebox
 from utils.hex_utils import hex_str_to_bytes, bytes_to_hex_str
 from packet.checksum import calc_checksum
 
+PARSE_MODE_AUTO = '自动'
+PARSE_MODE_HEX = 'HEX'
+PARSE_MODE_JSON = 'JSON'
+
 
 class ProtocolEntry:
-    """单个已加载的协议条目"""
     def __init__(self, fields, protocol_name='', command_name=''):
         self.fields = copy.deepcopy(fields)
         self.protocol_name = protocol_name
         self.command_name = command_name
-        self.enabled = True  # 是否参与自动解析
+        self.enabled = True
 
 
 class ParsePanel(ttk.LabelFrame):
-    """协议解析面板 - 支持多协议加载，自动匹配并解析接收到的数据"""
+    """协议解析面板 - 支持多协议加载 + JSON 自动识别解析"""
 
     def __init__(self, parent, on_send=None, log_panel=None):
         super().__init__(parent, text=' 协议解析结果 ', padding=6)
         self._on_send = on_send
         self._log_panel = log_panel
         self._protocols: list[ProtocolEntry] = []
+        self._parse_mode = PARSE_MODE_AUTO
         self._build_ui()
 
     def _build_ui(self):
-        # ===== 顶部：已加载协议列表 =====
         self._build_top_bar()
-        # ===== 中间：输入区 =====
         self._build_input_area()
-        # ===== 中间：解析结果表格 =====
-        self._build_result_table()
-        # ===== 底部：总体状态 =====
+        self._build_result_area()
         self._build_status_bar()
 
     def _build_top_bar(self):
@@ -66,6 +67,16 @@ class ParsePanel(ttk.LabelFrame):
         proto_scroll.pack(side=tk.RIGHT, fill=tk.Y, before=self._proto_listbox)
         self._proto_listbox.bind('<<ListboxSelect>>', self._on_proto_select)
 
+        # 解析模式选择
+        mode_frame = ttk.Frame(proto_frame)
+        mode_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=(2, 0))
+        ttk.Label(mode_frame, text='解析模式:', font=('', 8)).pack(side=tk.LEFT)
+        self._mode_var = tk.StringVar(value=PARSE_MODE_AUTO)
+        self._mode_cb = ttk.Combobox(mode_frame, textvariable=self._mode_var,
+                                      values=[PARSE_MODE_AUTO, PARSE_MODE_HEX, PARSE_MODE_JSON],
+                                      state='readonly', width=8)
+        self._mode_cb.pack(side=tk.LEFT, padx=(2, 0))
+
     def _build_input_area(self):
         input_frame = ttk.LabelFrame(self, text=' 输入待解析数据 ', padding=4)
         input_frame.pack(fill=tk.X, pady=(0, 4))
@@ -91,12 +102,20 @@ class ParsePanel(ttk.LabelFrame):
         self._input_entry.bind('<KeyRelease>', self._on_input_change)
         self._input_var.trace_add('write', self._on_input_var_change)
 
-    def _build_result_table(self):
+    def _build_result_area(self):
         result_frame = ttk.LabelFrame(self, text=' 解析结果 ', padding=4)
         result_frame.pack(fill=tk.BOTH, expand=True)
 
+        # Notebook 用于切换 HEX 表格 / JSON 树
+        self._result_notebook = ttk.Notebook(result_frame)
+        self._result_notebook.pack(fill=tk.BOTH, expand=True)
+
+        # --- HEX 结果表格 ---
+        hex_frame = ttk.Frame(self._result_notebook)
+        self._result_notebook.add(hex_frame, text='  HEX  ')
+
         columns = ('proto', 'index', 'field', 'expected', 'actual', 'status', 'desc')
-        self._result_tree = ttk.Treeview(result_frame, columns=columns,
+        self._result_tree = ttk.Treeview(hex_frame, columns=columns,
                                          show='headings', selectmode='browse', height=10)
         self._result_tree.heading('proto', text='协议')
         self._result_tree.heading('index', text='序号')
@@ -114,15 +133,47 @@ class ParsePanel(ttk.LabelFrame):
         self._result_tree.column('status', width=90, minwidth=60, anchor=tk.CENTER, stretch=False)
         self._result_tree.column('desc', width=180, minwidth=80, anchor=tk.W, stretch=False)
 
-        v_scroll = ttk.Scrollbar(result_frame, orient=tk.VERTICAL, command=self._result_tree.yview)
-        h_scroll = ttk.Scrollbar(result_frame, orient=tk.HORIZONTAL, command=self._result_tree.xview)
+        v_scroll = ttk.Scrollbar(hex_frame, orient=tk.VERTICAL, command=self._result_tree.yview)
+        h_scroll = ttk.Scrollbar(hex_frame, orient=tk.HORIZONTAL, command=self._result_tree.xview)
         self._result_tree.configure(yscrollcommand=v_scroll.set, xscrollcommand=h_scroll.set)
 
         self._result_tree.grid(row=0, column=0, sticky='nsew')
         v_scroll.grid(row=0, column=1, sticky='ns')
         h_scroll.grid(row=1, column=0, sticky='ew')
-        result_frame.rowconfigure(0, weight=1)
-        result_frame.columnconfigure(0, weight=1)
+        hex_frame.rowconfigure(0, weight=1)
+        hex_frame.columnconfigure(0, weight=1)
+
+        # --- JSON 结果树 ---
+        json_frame = ttk.Frame(self._result_notebook)
+        self._result_notebook.add(json_frame, text='  JSON  ')
+
+        self._json_tree = ttk.Treeview(json_frame, columns=('key', 'value', 'type'),
+                                       show='tree headings', selectmode='browse', height=10)
+        self._json_tree.heading('#0', text='', anchor=tk.W)
+        self._json_tree.heading('key', text='键', anchor=tk.W)
+        self._json_tree.heading('value', text='值', anchor=tk.W)
+        self._json_tree.heading('type', text='类型', anchor=tk.W)
+
+        self._json_tree.column('#0', width=30, minwidth=20, stretch=False)
+        self._json_tree.column('key', width=160, minwidth=80, anchor=tk.W)
+        self._json_tree.column('value', width=200, minwidth=80, anchor=tk.W)
+        self._json_tree.column('type', width=70, minwidth=50, anchor=tk.CENTER, stretch=False)
+
+        jv_scroll = ttk.Scrollbar(json_frame, orient=tk.VERTICAL, command=self._json_tree.yview)
+        jh_scroll = ttk.Scrollbar(json_frame, orient=tk.HORIZONTAL, command=self._json_tree.xview)
+        self._json_tree.configure(yscrollcommand=jv_scroll.set, xscrollcommand=jh_scroll.set)
+
+        self._json_tree.grid(row=0, column=0, sticky='nsew')
+        jv_scroll.grid(row=0, column=1, sticky='ns')
+        jh_scroll.grid(row=1, column=0, sticky='ew')
+        json_frame.rowconfigure(0, weight=1)
+        json_frame.columnconfigure(0, weight=1)
+
+        self._json_tree.tag_configure('str', foreground='#6a9955')
+        self._json_tree.tag_configure('num', foreground='#4fc1ff')
+        self._json_tree.tag_configure('bool', foreground='#ce9178')
+        self._json_tree.tag_configure('null', foreground='#808080')
+        self._json_tree.tag_configure('container', font=('', 9, 'bold'))
 
     def _build_status_bar(self):
         bottom_frame = ttk.Frame(self)
@@ -146,7 +197,6 @@ class ParsePanel(ttk.LabelFrame):
     # ============================================================
 
     def add_protocol(self, fields, protocol_name='', command_name=''):
-        """添加一个协议到解析列表"""
         entry = ProtocolEntry(fields, protocol_name, command_name)
         self._protocols.append(entry)
         self._refresh_proto_list()
@@ -155,7 +205,6 @@ class ParsePanel(ttk.LabelFrame):
             self._log_panel.log_info(f'[协议解析] 已加载协议: {display}')
 
     def remove_protocol(self, index: int):
-        """移除指定位置的协议"""
         if 0 <= index < len(self._protocols):
             entry = self._protocols.pop(index)
             self._refresh_proto_list()
@@ -181,7 +230,6 @@ class ParsePanel(ttk.LabelFrame):
         pass
 
     def _on_add_protocol(self):
-        """弹出协议选择对话框，从协议编辑器中加载选中的协议"""
         parent = self.master
         from ui.tools_notebook import ToolsContainer
         editor = None
@@ -199,7 +247,6 @@ class ParsePanel(ttk.LabelFrame):
         self._show_proto_selector(editor)
 
     def _show_proto_selector(self, editor):
-        """显示协议选择对话框"""
         from protocols import PRESET_TEMPLATES
         all_protos = {}
         for proto, cmds in PRESET_TEMPLATES.items():
@@ -246,7 +293,6 @@ class ParsePanel(ttk.LabelFrame):
         canvas.bind('<Leave>', lambda e: canvas.unbind_all('<MouseWheel>'))
 
         check_vars = {}
-
         row = 0
         for proto, cmds in all_protos.items():
             proto_var = tk.BooleanVar(value=False)
@@ -296,7 +342,6 @@ class ParsePanel(ttk.LabelFrame):
                 self.remove_protocol(sel[0])
 
     def load_fields(self, fields, protocol_name='', command_name=''):
-        """兼容旧接口：单协议模式直接替换"""
         self._protocols.clear()
         self.add_protocol(fields, protocol_name, command_name)
 
@@ -306,14 +351,9 @@ class ParsePanel(ttk.LabelFrame):
 
     def _on_auto_parse_toggle(self):
         if self._auto_parse_var.get():
-            if not self._protocols:
+            if self._mode_var.get() == PARSE_MODE_HEX and not self._protocols:
                 self._auto_parse_var.set(False)
-                messagebox.showwarning('提示', '请先添加协议', parent=self.winfo_toplevel())
-                return
-            has_enabled = any(p.enabled for p in self._protocols)
-            if not has_enabled:
-                self._auto_parse_var.set(False)
-                messagebox.showwarning('提示', '请至少启用一个协议', parent=self.winfo_toplevel())
+                messagebox.showwarning('提示', 'HEX 模式请先添加协议', parent=self.winfo_toplevel())
                 return
             if self._log_panel:
                 self._log_panel.log_info('[协议解析] 自动解析已开启')
@@ -321,22 +361,49 @@ class ParsePanel(ttk.LabelFrame):
             if self._log_panel:
                 self._log_panel.log_info('[协议解析] 自动解析已关闭')
 
-    def auto_parse(self, hex_str: str):
-        if not self._auto_parse_var.get() or not self._protocols or not hex_str:
+    def auto_parse(self, raw_str: str):
+        if not self._auto_parse_var.get() or not raw_str:
             return
-        hex_chars = ''.join(c for c in hex_str if c in '0123456789abcdefABCDEF')
-        formatted = ' '.join(f'{hex_chars[i:i+2].upper()}' for i in range(0, len(hex_chars), 2))
-        self._input_var.set(formatted)
-        matched, proto_display = self._try_match_all(formatted)
-        if matched:
-            self._status_var.set(f'✅ 匹配协议: {proto_display}')
-            if self._log_panel:
-                self._log_panel.log_info(f'[协议解析] ✅ 自动匹配: {proto_display}')
-        else:
-            self._status_var.set('❌ 未匹配到任何协议')
+
+        mode = self._mode_var.get()
+
+        # JSON 模式或自动模式：先尝试 JSON
+        if mode in (PARSE_MODE_AUTO, PARSE_MODE_JSON):
+            try:
+                data = json.loads(raw_str)
+                self._input_var.set(raw_str)
+                self._show_json_result(data)
+                self._result_notebook.select(1)
+                if self._log_panel:
+                    self._log_panel.log_info('[协议解析] ✅ JSON 解析完成')
+                return
+            except (json.JSONDecodeError, ValueError):
+                if mode == PARSE_MODE_JSON:
+                    self._clear_results()
+                    self._status_var.set('❌ JSON 解析失败：无效的 JSON 数据')
+                    return
+                # 自动模式：JSON 失败则走 HEX
+
+        # HEX 模式或自动模式（JSON 失败后）
+        if mode in (PARSE_MODE_AUTO, PARSE_MODE_HEX):
+            hex_chars = ''.join(c for c in raw_str if c in '0123456789abcdefABCDEF')
+            if not hex_chars:
+                if mode == PARSE_MODE_AUTO:
+                    self._clear_results()
+                    self._status_var.set('❌ 无法解析：既不是 JSON 也不是 HEX 数据')
+                return
+            formatted = ' '.join(f'{hex_chars[i:i+2].upper()}' for i in range(0, len(hex_chars), 2))
+            self._input_var.set(formatted)
+            matched, proto_display = self._try_match_all(formatted)
+            if matched:
+                self._status_var.set(f'✅ 匹配协议: {proto_display}')
+                self._result_notebook.select(0)
+                if self._log_panel:
+                    self._log_panel.log_info(f'[协议解析] ✅ 自动匹配: {proto_display}')
+            else:
+                self._status_var.set('❌ 未匹配到任何协议')
 
     def _try_match_all(self, hex_str: str):
-        """遍历所有启用的协议，返回第一个匹配的"""
         try:
             hex_chars = ''.join(c for c in hex_str if c in '0123456789abcdefABCDEF')
             if len(hex_chars) % 2 != 0:
@@ -372,7 +439,75 @@ class ParsePanel(ttk.LabelFrame):
         return True
 
     # ============================================================
-    # 解析执行
+    # JSON 解析
+    # ============================================================
+
+    def _show_json_result(self, data):
+        self._clear_results()
+        self._status_var.set('✅ JSON 解析完成')
+        self._status_label.configure(foreground='green')
+
+        field_count = [0]
+
+        for item in self._json_tree.get_children():
+            self._json_tree.delete(item)
+
+        self._json_tree.insert('', tk.END, iid='root', text='', open=True,
+                               values=('{...}', '', ''), tags=('container',))
+        self._build_json_tree('root', data, field_count)
+        self._match_count_var.set(f'字段数: {field_count[0]}')
+
+    def _build_json_tree(self, parent, data, field_count):
+        import math
+        if isinstance(data, dict):
+            for key, value in data.items():
+                iid = f'{parent}_{key}'
+                field_count[0] += 1
+                if isinstance(value, (dict, list)):
+                    type_str = 'object' if isinstance(value, dict) else f'array[{len(value)}]'
+                    self._json_tree.insert(parent, tk.END, iid=iid, text='',
+                                           open=False,
+                                           values=(key, '', type_str),
+                                           tags=('container',))
+                    self._build_json_tree(iid, value, field_count)
+                else:
+                    val_str, typ = self._format_json_value(value)
+                    self._json_tree.insert(parent, tk.END, iid=iid, text='',
+                                           values=(key, val_str, typ),
+                                           tags=(typ,))
+        elif isinstance(data, list):
+            for idx, value in enumerate(data):
+                iid = f'{parent}_{idx}'
+                field_count[0] += 1
+                key = f'[{idx}]'
+                if isinstance(value, (dict, list)):
+                    type_str = 'object' if isinstance(value, dict) else f'array[{len(value)}]'
+                    self._json_tree.insert(parent, tk.END, iid=iid, text='',
+                                           open=False,
+                                           values=(key, '', type_str),
+                                           tags=('container',))
+                    self._build_json_tree(iid, value, field_count)
+                else:
+                    val_str, typ = self._format_json_value(value)
+                    self._json_tree.insert(parent, tk.END, iid=iid, text='',
+                                           values=(key, val_str, typ),
+                                           tags=(typ,))
+
+    def _format_json_value(self, value):
+        if isinstance(value, bool):
+            return str(value).lower(), 'bool'
+        if isinstance(value, int):
+            return str(value), 'num'
+        if isinstance(value, float):
+            if value == int(value):
+                return str(int(value)), 'num'
+            return f'{value:.6f}', 'num'
+        if value is None:
+            return 'null', 'null'
+        return str(value), 'str'
+
+    # ============================================================
+    # HEX 解析执行
     # ============================================================
 
     def set_input_data(self, data_str: str):
@@ -382,7 +517,6 @@ class ParsePanel(ttk.LabelFrame):
         self._do_parse()
 
     def _do_load_fields(self):
-        """加载选中的协议字段到结果表格，只填充数据够得着的字段"""
         sel = self._proto_listbox.curselection()
         if not sel:
             messagebox.showwarning('提示', '请先在已加载协议列表中选择一个协议', parent=self.winfo_toplevel())
@@ -406,13 +540,43 @@ class ParsePanel(ttk.LabelFrame):
     def _do_parse(self):
         input_str = self._input_var.get().strip()
         if not input_str:
-            messagebox.showwarning('提示', '请输入待解析的 HEX 数据', parent=self.winfo_toplevel())
+            messagebox.showwarning('提示', '请输入待解析的数据', parent=self.winfo_toplevel())
             return
 
+        mode = self._mode_var.get()
+
+        # JSON 模式
+        if mode == PARSE_MODE_JSON:
+            try:
+                data = json.loads(input_str)
+                self._show_json_result(data)
+                self._result_notebook.select(1)
+            except (json.JSONDecodeError, ValueError) as e:
+                messagebox.showerror('JSON 解析失败', str(e), parent=self.winfo_toplevel())
+            return
+
+        # HEX 模式
+        if mode == PARSE_MODE_HEX:
+            self._do_hex_parse(input_str)
+            return
+
+        # 自动模式：先尝试 JSON
+        try:
+            data = json.loads(input_str)
+            self._show_json_result(data)
+            self._result_notebook.select(1)
+            return
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+        # 自动模式：JSON 失败则 HEX
+        self._do_hex_parse(input_str)
+
+    def _do_hex_parse(self, input_str):
         if not self._protocols:
             messagebox.showwarning('提示', '请先添加协议', parent=self.winfo_toplevel())
             return
-
+        self._result_notebook.select(0)
         sel = self._proto_listbox.curselection()
         if sel:
             entry = self._protocols[sel[0]]
@@ -594,6 +758,8 @@ class ParsePanel(ttk.LabelFrame):
     def _clear_results(self):
         for item in self._result_tree.get_children():
             self._result_tree.delete(item)
+        for item in self._json_tree.get_children():
+            self._json_tree.delete(item)
         self._status_var.set('就绪')
         self._match_count_var.set('匹配: 0/0')
         self._total_len_var.set('数据长度: 0 字节')
@@ -605,6 +771,9 @@ class ParsePanel(ttk.LabelFrame):
         pass
 
     def _auto_format_input(self):
+        mode = self._mode_var.get()
+        if mode == PARSE_MODE_JSON:
+            return
         raw = self._input_var.get()
         hex_chars = ''.join(c for c in raw if c in '0123456789abcdefABCDEF')
         formatted = ' '.join(f'{hex_chars[i:i+2].upper()}' for i in range(0, len(hex_chars), 2))
