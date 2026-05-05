@@ -918,6 +918,11 @@ class MainWindow:
             return
 
         try:
+            # 清空当前数据
+            self.comm_panel._connections.clear()
+            self.tools_container._panels.clear()
+            self._connected_protocols.clear()
+
             # 加载通信设置
             comm_settings = project.get('comm', {})
             if comm_settings:
