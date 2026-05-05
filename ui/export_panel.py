@@ -31,7 +31,7 @@ class ExportPanel(ttk.LabelFrame):
         
         ttk.Label(row2, text='导出格式:').pack(side=tk.LEFT)
         self.format_var = tk.StringVar(value='TXT')
-        for fmt in ['TXT', 'CSV', 'HTML']:
+        for fmt in ['TXT', 'CSV', 'HTML', 'Excel', 'PDF']:
             ttk.Radiobutton(row2, text=fmt, variable=self.format_var,
                             value=fmt).pack(side=tk.LEFT, padx=(4, 2))
 
@@ -76,14 +76,18 @@ class ExportPanel(ttk.LabelFrame):
         try:
             # 获取日志内容
             log_text = self._log_panel.text.get('1.0', tk.END)
-            
+
             if fmt == 'txt':
                 self._export_txt(file_path, log_text)
             elif fmt == 'csv':
                 self._export_csv(file_path, log_text)
             elif fmt == 'html':
                 self._export_html(file_path, log_text)
-            
+            elif fmt == 'excel':
+                self._export_excel(file_path, log_text)
+            elif fmt == 'pdf':
+                self._export_pdf(file_path, log_text)
+
             self.status_var.set(f'✅ 已导出: {os.path.basename(file_path)}')
         except Exception as e:
             messagebox.showerror('导出失败', str(e))
@@ -177,6 +181,114 @@ h1 {{ color: #569cd6; }}
         
         with open(file_path, 'w', encoding='utf-8') as f:
             f.write(html)
+
+    def _export_excel(self, file_path: str, content: str):
+        """导出为 Excel"""
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Alignment
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = '通信日志'
+
+        # 标题行
+        ws.merge_cells('A1:C1')
+        title_cell = ws['A1']
+        title_cell.value = f'通信日志导出 - {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}'
+        title_cell.font = Font(size=14, bold=True, color='1E90FF')
+        title_cell.alignment = Alignment(horizontal='center')
+
+        # 表头
+        headers = ['时间', '方向', '数据']
+        header_fill = PatternFill(start_color='2F5496', end_color='2F5496', fill_type='solid')
+        header_font = Font(bold=True, color='FFFFFF', size=11)
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=3, column=col, value=header)
+            cell.fill = header_fill
+            cell.font = header_font
+
+        # 数据行
+        row = 4
+        tx_font = Font(color='4FC1FF')
+        rx_font = Font(color='6A9955')
+        info_font = Font(color='CE9178')
+
+        for line in content.split('\n'):
+            if not line.strip():
+                continue
+            timestamp = ''
+            direction = ''
+            data = line.strip()
+
+            if line.startswith('['):
+                try:
+                    time_end = line.index(']')
+                    timestamp = line[1:time_end]
+                    rest = line[time_end + 1:].strip()
+                    if 'TX' in rest and '>>' in rest:
+                        direction = 'TX'
+                        data = rest[rest.index('>>') + 2:].strip()
+                    elif 'RX' in rest and '<<' in rest:
+                        direction = 'RX'
+                        data = rest[rest.index('<<') + 2:].strip()
+                    else:
+                        direction = 'INFO'
+                        data = rest
+                except (ValueError, IndexError):
+                    pass
+
+            ws.cell(row=row, column=1, value=timestamp)
+            ws.cell(row=row, column=2, value=direction)
+            data_cell = ws.cell(row=row, column=3, value=data)
+
+            if direction == 'TX':
+                data_cell.font = tx_font
+            elif direction == 'RX':
+                data_cell.font = rx_font
+            else:
+                data_cell.font = info_font
+
+            row += 1
+
+        ws.column_dimensions['A'].width = 16
+        ws.column_dimensions['B'].width = 10
+        ws.column_dimensions['C'].width = 80
+        wb.save(file_path)
+
+    def _export_pdf(self, file_path: str, content: str):
+        """导出为 PDF"""
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.units import mm
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable
+        from reportlab.lib.colors import HexColor
+
+        doc = SimpleDocTemplate(file_path, pagesize=A4,
+                                topMargin=20*mm, bottomMargin=20*mm)
+        styles = getSampleStyleSheet()
+
+        title_style = ParagraphStyle('Title', parent=styles['Heading1'],
+                                     fontSize=16, textColor=HexColor('#1E90FF'),
+                                     spaceAfter=10)
+        normal_style = ParagraphStyle('Log', parent=styles['Code'],
+                                      fontSize=8, leading=12,
+                                      spaceAfter=2)
+
+        elements = []
+        elements.append(Paragraph(
+            f'通信日志导出 - {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}',
+            title_style))
+        elements.append(HRFlowable(width='100%', thickness=1, color=HexColor('#333333')))
+        elements.append(Spacer(1, 10))
+
+        for line in content.split('\n'):
+            if not line.strip():
+                continue
+            escaped = line.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+            escaped = escaped.replace('\n', '<br/>')
+            elements.append(Paragraph(escaped, normal_style))
+
+        doc.build(elements)
 
     def get_settings(self) -> dict:
         return {
