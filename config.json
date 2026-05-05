@@ -4,14 +4,14 @@
     "ip": "192.168.2.113",
     "port": "8081",
     "local_port": "0",
-    "serial_port": "/dev/cu.HUAWEIFreeClip2 - n/a",
+    "serial_port": "/dev/cu.usbserial-2110 - USB Serial",
     "baudrate": "115200",
     "databits": "8",
     "parity": "N",
     "stopbits": "1"
   },
   "tools": {
-    "_current_panel": "格式化",
+    "_current_panel": "快捷发送",
     "send": {
       "mode": "ascii",
       "input": "11 22 33 44",
@@ -215,7 +215,8 @@
           ],
           "protocol_name": "GRMS",
           "command_name": "控制空调(发送)",
-          "enabled": true
+          "enabled": true,
+          "proto_type": "hex"
         },
         {
           "fields": [
@@ -303,7 +304,8 @@
           ],
           "protocol_name": "GRMS",
           "command_name": "控制空调(回复)",
-          "enabled": true
+          "enabled": true,
+          "proto_type": "hex"
         },
         {
           "fields": [
@@ -395,7 +397,8 @@
           ],
           "protocol_name": "GRMS",
           "command_name": "控制房态(发送)",
-          "enabled": true
+          "enabled": true,
+          "proto_type": "hex"
         },
         {
           "fields": [
@@ -479,7 +482,8 @@
           ],
           "protocol_name": "GRMS",
           "command_name": "固件升级(发送)",
-          "enabled": true
+          "enabled": true,
+          "proto_type": "hex"
         },
         {
           "fields": [
@@ -567,34 +571,535 @@
           ],
           "protocol_name": "GRMS",
           "command_name": "固件升级(回复)",
-          "enabled": true
+          "enabled": true,
+          "proto_type": "hex"
+        },
+        {
+          "fields": [
+            {
+              "name": "Header",
+              "hex_value": "BA",
+              "byte_count": 1,
+              "field_type": "固定值",
+              "description": "命令头"
+            },
+            {
+              "name": "Func",
+              "hex_value": "01",
+              "byte_count": 1,
+              "field_type": "数据",
+              "description": "功能码 0x01"
+            },
+            {
+              "name": "Sequence",
+              "hex_value": "0001",
+              "byte_count": 2,
+              "field_type": "数据",
+              "description": "流水号"
+            },
+            {
+              "name": "Box",
+              "hex_value": "01",
+              "byte_count": 1,
+              "field_type": "数据",
+              "description": "设备地址"
+            },
+            {
+              "name": "TotalLen",
+              "hex_value": "",
+              "byte_count": 2,
+              "field_type": "长度",
+              "description": "命令长度之和",
+              "length_start": 0,
+              "length_end": 3,
+              "length_byte_order": "big"
+            },
+            {
+              "name": "DeviceCode",
+              "hex_value": "01",
+              "byte_count": 1,
+              "field_type": "数据",
+              "description": "设备编码"
+            },
+            {
+              "name": "DeviceBox",
+              "hex_value": "01",
+              "byte_count": 1,
+              "field_type": "数据",
+              "description": "设备地址"
+            },
+            {
+              "name": "ControlDataLen",
+              "hex_value": "0009",
+              "byte_count": 2,
+              "field_type": "数据",
+              "description": "控制数据长度"
+            },
+            {
+              "name": "空调ID",
+              "hex_value": "01",
+              "byte_count": 1,
+              "field_type": "数据",
+              "description": "空调ID [1-255]"
+            },
+            {
+              "name": "开关",
+              "hex_value": "01",
+              "byte_count": 1,
+              "field_type": "数据",
+              "description": "0=关, 1=开, 255=默认",
+              "parse_mode": "枚举映射",
+              "enum_mappings": [
+                {
+                  "value": 0,
+                  "label": "关"
+                },
+                {
+                  "value": 1,
+                  "label": "开"
+                },
+                {
+                  "value": 255,
+                  "label": "默认"
+                }
+              ]
+            },
+            {
+              "name": "风速",
+              "hex_value": "64",
+              "byte_count": 1,
+              "field_type": "数据",
+              "description": "0=关, 1-100=档位, 104=自动, 255=默认"
+            },
+            {
+              "name": "模式",
+              "hex_value": "02",
+              "byte_count": 1,
+              "field_type": "数据",
+              "description": "0=关, 1=通风, 2=制冷, 3=制热, 5=除湿, 6=自动, 255=默认",
+              "parse_mode": "枚举映射",
+              "enum_mappings": [
+                {
+                  "value": 0,
+                  "label": "关"
+                },
+                {
+                  "value": 1,
+                  "label": "通风"
+                },
+                {
+                  "value": 2,
+                  "label": "制冷"
+                },
+                {
+                  "value": 3,
+                  "label": "制热"
+                },
+                {
+                  "value": 5,
+                  "label": "除湿"
+                },
+                {
+                  "value": 6,
+                  "label": "自动"
+                },
+                {
+                  "value": 255,
+                  "label": "默认"
+                }
+              ]
+            },
+            {
+              "name": "设置温度",
+              "hex_value": "00C8",
+              "byte_count": 2,
+              "field_type": "数据",
+              "description": "[-99°C,99°C] 精度0.1°C, bit15=符号, bit14-0=数值"
+            },
+            {
+              "name": "预留1",
+              "hex_value": "00",
+              "byte_count": 1,
+              "field_type": "数据",
+              "description": "预留"
+            },
+            {
+              "name": "预留2",
+              "hex_value": "00",
+              "byte_count": 1,
+              "field_type": "数据",
+              "description": "预留"
+            },
+            {
+              "name": "预留3",
+              "hex_value": "00",
+              "byte_count": 1,
+              "field_type": "数据",
+              "description": "预留"
+            },
+            {
+              "name": "CRC16",
+              "hex_value": "",
+              "byte_count": 2,
+              "field_type": "校验",
+              "description": "CRC16校验(高位在前)",
+              "checksum_algorithm": "CRC16/MODBUS",
+              "checksum_start": 0,
+              "checksum_end": 15,
+              "checksum_byte_order": "big"
+            }
+          ],
+          "protocol_name": "GRMS",
+          "command_name": "控制空调(发送)",
+          "enabled": true,
+          "proto_type": "hex"
+        },
+        {
+          "fields": [
+            {
+              "key": "sensor_id",
+              "type": "string",
+              "required": true,
+              "default": "SENSOR_001",
+              "description": "传感器ID"
+            },
+            {
+              "key": "action",
+              "type": "string",
+              "required": true,
+              "default": "calibrate",
+              "enum": [
+                "calibrate",
+                "reset",
+                "enable",
+                "disable"
+              ],
+              "description": "控制动作"
+            },
+            {
+              "key": "parameters",
+              "type": "object",
+              "required": false,
+              "default": {},
+              "description": "控制参数"
+            }
+          ],
+          "example": "{\"sensor_id\":\"SENSOR_001\",\"action\":\"calibrate\",\"parameters\":{\"offset\":0.5}}",
+          "protocol_name": "JSON传感网络",
+          "command_name": "控制指令",
+          "enabled": true,
+          "proto_type": "json"
+        },
+        {
+          "fields": [
+            {
+              "key": "device_id",
+              "type": "string",
+              "required": true,
+              "default": "SN001",
+              "description": "设备ID"
+            },
+            {
+              "key": "status",
+              "type": "string",
+              "required": true,
+              "default": "online",
+              "enum": [
+                "online",
+                "offline",
+                "error"
+              ],
+              "description": "设备状态"
+            },
+            {
+              "key": "temperature",
+              "type": "number",
+              "required": true,
+              "default": 25.0,
+              "minimum": -40,
+              "maximum": 125,
+              "description": "温度"
+            },
+            {
+              "key": "humidity",
+              "type": "number",
+              "required": false,
+              "default": 50.0,
+              "minimum": 0,
+              "maximum": 100,
+              "description": "湿度"
+            },
+            {
+              "key": "battery",
+              "type": "integer",
+              "required": false,
+              "default": 100,
+              "minimum": 0,
+              "maximum": 100,
+              "description": "电量"
+            },
+            {
+              "key": "error_code",
+              "type": "integer",
+              "required": false,
+              "default": 0,
+              "minimum": 0,
+              "maximum": 999,
+              "description": "错误码"
+            }
+          ],
+          "example": "{\"device_id\":\"SN001\",\"status\":\"online\",\"temperature\":26.5,\"humidity\":60,\"battery\":85,\"error_code\":0}",
+          "protocol_name": "JSON设备协议",
+          "command_name": "上报状态",
+          "enabled": true,
+          "proto_type": "json"
+        },
+        {
+          "fields": [
+            {
+              "key": "cmd",
+              "type": "string",
+              "required": true,
+              "default": "reboot",
+              "enum": [
+                "reboot",
+                "update",
+                "config",
+                "query"
+              ],
+              "description": "指令类型"
+            },
+            {
+              "key": "device_id",
+              "type": "string",
+              "required": true,
+              "default": "SN001",
+              "description": "目标设备ID"
+            },
+            {
+              "key": "params",
+              "type": "object",
+              "required": false,
+              "default": {},
+              "description": "指令参数"
+            },
+            {
+              "key": "timeout",
+              "type": "integer",
+              "required": false,
+              "default": 30,
+              "minimum": 1,
+              "maximum": 300,
+              "description": "超时时间"
+            }
+          ],
+          "example": "{\"cmd\":\"reboot\",\"device_id\":\"SN001\",\"params\":{\"delay\":5},\"timeout\":30}",
+          "protocol_name": "JSON设备协议",
+          "command_name": "下发指令",
+          "enabled": true,
+          "proto_type": "json"
+        },
+        {
+          "fields": [
+            {
+              "key": "cmd",
+              "type": "string",
+              "required": true,
+              "default": "config",
+              "enum": [
+                "config"
+              ],
+              "description": "指令类型"
+            },
+            {
+              "key": "device_id",
+              "type": "string",
+              "required": true,
+              "default": "SN001",
+              "description": "设备ID"
+            },
+            {
+              "key": "config",
+              "type": "object",
+              "required": true,
+              "default": {},
+              "description": "配置参数"
+            },
+            {
+              "key": "version",
+              "type": "string",
+              "required": false,
+              "default": "1.0",
+              "pattern": "^\\d+\\.\\d+$",
+              "description": "配置版本号"
+            }
+          ],
+          "example": "{\"cmd\":\"config\",\"device_id\":\"SN001\",\"config\":{\"interval\":60,\"threshold\":30},\"version\":\"1.0\"}",
+          "protocol_name": "JSON设备协议",
+          "command_name": "配置更新",
+          "enabled": true,
+          "proto_type": "json"
+        },
+        {
+          "fields": [
+            {
+              "key": "type",
+              "type": "string",
+              "required": true,
+              "default": "critical",
+              "enum": [
+                "alert",
+                "warning",
+                "critical"
+              ],
+              "description": "告警类型"
+            },
+            {
+              "key": "device_id",
+              "type": "string",
+              "required": true,
+              "default": "SN001",
+              "description": "设备ID"
+            },
+            {
+              "key": "message",
+              "type": "string",
+              "required": true,
+              "default": "告警信息",
+              "description": "告警信息"
+            },
+            {
+              "key": "level",
+              "type": "integer",
+              "required": true,
+              "default": 1,
+              "minimum": 1,
+              "maximum": 5,
+              "description": "告警等级"
+            },
+            {
+              "key": "timestamp",
+              "type": "integer",
+              "required": false,
+              "default": 0,
+              "description": "时间戳"
+            }
+          ],
+          "example": "{\"type\":\"critical\",\"device_id\":\"SN001\",\"message\":\"温度过高\",\"level\":5,\"timestamp\":1700000000}",
+          "protocol_name": "JSON设备协议",
+          "command_name": "告警通知",
+          "enabled": true,
+          "proto_type": "json"
+        },
+        {
+          "fields": [
+            {
+              "key": "sensor_id",
+              "type": "string",
+              "required": true,
+              "default": "SENSOR_001",
+              "pattern": "^SENSOR_\\d+$",
+              "description": "传感器ID"
+            },
+            {
+              "key": "data_type",
+              "type": "string",
+              "required": true,
+              "default": "temperature",
+              "enum": [
+                "temperature",
+                "pressure",
+                "flow",
+                "level"
+              ],
+              "description": "数据类型"
+            },
+            {
+              "key": "value",
+              "type": "number",
+              "required": true,
+              "default": 23.5,
+              "description": "采集值"
+            },
+            {
+              "key": "unit",
+              "type": "string",
+              "required": false,
+              "default": "",
+              "description": "单位"
+            },
+            {
+              "key": "quality",
+              "type": "integer",
+              "required": false,
+              "default": 100,
+              "minimum": 0,
+              "maximum": 100,
+              "description": "信号质量"
+            }
+          ],
+          "example": "{\"sensor_id\":\"SENSOR_001\",\"data_type\":\"temperature\",\"value\":23.5,\"unit\":\"°C\",\"quality\":95}",
+          "protocol_name": "JSON传感网络",
+          "command_name": "传感器数据",
+          "enabled": true,
+          "proto_type": "json"
         }
       ],
       "auto_parse": true
     },
     "protocol_editor": {
-      "custom_templates": {}
-    },
-    "replay": {
-      "replay_mode": "选中回放",
-      "replay_interval": "200"
-    },
-    "export": {
-      "range": "全部日志",
-      "format": "TXT",
-      "include_time": true,
-      "include_raw": true
-    },
-    "formatter": {
-      "format": "自动检测"
-    },
-    "recorder": {
-      "records": []
+      "custom_templates": {
+        "1312": {
+          "_proto_type": "hex",
+          "35354": {
+            "fields": [
+              {
+                "name": "新字段",
+                "hex_value": "00",
+                "byte_count": 1,
+                "field_type": "数据",
+                "parse_mode": "",
+                "enum_mappings": [],
+                "bit_flags": [],
+                "length_start": 0,
+                "length_end": 0,
+                "length_byte_order": "big",
+                "checksum_algorithm": "CRC16/MODBUS",
+                "checksum_start": 0,
+                "checksum_end": 0,
+                "checksum_byte_order": "big",
+                "description": ""
+              }
+            ],
+            "desc": ""
+          }
+        },
+        "1313123": {
+          "_proto_type": "json",
+          "42423": {
+            "fields": [
+              {
+                "key": "1242141",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "enum": [],
+                "minimum": null,
+                "maximum": null,
+                "pattern": "",
+                "description": ""
+              }
+            ],
+            "desc": "",
+            "type": "json"
+          }
+        }
+      }
     }
   },
   "connections": [
     {
-      "key": "TCP客户端 192.168.2.113:8081",
+      "key": "192.168.2.113:8081",
       "addr": "192.168.2.113:8081",
       "tx": 0,
       "rx": 0,
@@ -602,9 +1107,26 @@
       "clients": {},
       "switches": {},
       "config": {
-        "protocol": "TCP客户端",
+        "protocol": "TCP服务端",
         "host": "192.168.2.113",
         "port": 8081
+      }
+    },
+    {
+      "key": "串口 /dev/cu.HUAWEIFreeClip2",
+      "addr": "/dev/cu.HUAWEIFreeClip2 115200",
+      "tx": 0,
+      "rx": 0,
+      "status": "已断开",
+      "clients": {},
+      "switches": {},
+      "config": {
+        "protocol": "串口",
+        "port": "/dev/cu.HUAWEIFreeClip2",
+        "baudrate": 115200,
+        "bytesize": 8,
+        "parity": "N",
+        "stopbits": 1
       }
     }
   ],

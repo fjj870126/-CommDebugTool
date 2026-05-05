@@ -2,14 +2,12 @@
 
 import copy
 import json
+import re
 import tkinter as tk
 from tkinter import ttk, messagebox
 from utils.hex_utils import hex_str_to_bytes, bytes_to_hex_str
 from packet.checksum import calc_checksum
 
-PARSE_MODE_AUTO = '自动'
-PARSE_MODE_HEX = 'HEX'
-PARSE_MODE_JSON = 'JSON'
 
 
 class ProtocolEntry:
@@ -18,6 +16,17 @@ class ProtocolEntry:
         self.protocol_name = protocol_name
         self.command_name = command_name
         self.enabled = True
+        self.proto_type = 'hex'
+
+
+class JsonProtocolEntry:
+    def __init__(self, fields, example='', protocol_name='', command_name=''):
+        self.fields = copy.deepcopy(fields)
+        self.example = example
+        self.protocol_name = protocol_name
+        self.command_name = command_name
+        self.enabled = True
+        self.proto_type = 'json'
 
 
 class ParsePanel(ttk.LabelFrame):
@@ -28,7 +37,7 @@ class ParsePanel(ttk.LabelFrame):
         self._on_send = on_send
         self._log_panel = log_panel
         self._protocols: list[ProtocolEntry] = []
-        self._parse_mode = PARSE_MODE_AUTO
+        self._json_protocols: list[JsonProtocolEntry] = []
         self._build_ui()
 
     def _build_ui(self):
@@ -67,16 +76,6 @@ class ParsePanel(ttk.LabelFrame):
         proto_scroll.pack(side=tk.RIGHT, fill=tk.Y, before=self._proto_listbox)
         self._proto_listbox.bind('<<ListboxSelect>>', self._on_proto_select)
 
-        # 解析模式选择
-        mode_frame = ttk.Frame(proto_frame)
-        mode_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=(2, 0))
-        ttk.Label(mode_frame, text='解析模式:', font=('', 8)).pack(side=tk.LEFT)
-        self._mode_var = tk.StringVar(value=PARSE_MODE_AUTO)
-        self._mode_cb = ttk.Combobox(mode_frame, textvariable=self._mode_var,
-                                      values=[PARSE_MODE_AUTO, PARSE_MODE_HEX, PARSE_MODE_JSON],
-                                      state='readonly', width=8)
-        self._mode_cb.pack(side=tk.LEFT, padx=(2, 0))
-
     def _build_input_area(self):
         input_frame = ttk.LabelFrame(self, text=' 输入待解析数据 ', padding=4)
         input_frame.pack(fill=tk.X, pady=(0, 4))
@@ -106,7 +105,6 @@ class ParsePanel(ttk.LabelFrame):
         result_frame = ttk.LabelFrame(self, text=' 解析结果 ', padding=4)
         result_frame.pack(fill=tk.BOTH, expand=True)
 
-        # Notebook 用于切换 HEX 表格 / JSON 树
         self._result_notebook = ttk.Notebook(result_frame)
         self._result_notebook.pack(fill=tk.BOTH, expand=True)
 
@@ -143,37 +141,39 @@ class ParsePanel(ttk.LabelFrame):
         hex_frame.rowconfigure(0, weight=1)
         hex_frame.columnconfigure(0, weight=1)
 
-        # --- JSON 结果树 ---
+        # --- JSON 结果表格 ---
         json_frame = ttk.Frame(self._result_notebook)
         self._result_notebook.add(json_frame, text='  JSON  ')
 
-        self._json_tree = ttk.Treeview(json_frame, columns=('key', 'value', 'type'),
-                                       show='tree headings', selectmode='browse', height=10)
-        self._json_tree.heading('#0', text='', anchor=tk.W)
-        self._json_tree.heading('key', text='键', anchor=tk.W)
-        self._json_tree.heading('value', text='值', anchor=tk.W)
-        self._json_tree.heading('type', text='类型', anchor=tk.W)
+        jcolumns = ('key', 'jtype', 'constraints', 'actual', 'status')
+        self._json_result_tree = ttk.Treeview(json_frame, columns=jcolumns,
+                                               show='headings', selectmode='browse', height=10)
+        self._json_result_tree.heading('key', text='键路径')
+        self._json_result_tree.heading('jtype', text='期望类型')
+        self._json_result_tree.heading('constraints', text='约束')
+        self._json_result_tree.heading('actual', text='实际值')
+        self._json_result_tree.heading('status', text='比对结果')
 
-        self._json_tree.column('#0', width=30, minwidth=20, stretch=False)
-        self._json_tree.column('key', width=160, minwidth=80, anchor=tk.W)
-        self._json_tree.column('value', width=200, minwidth=80, anchor=tk.W)
-        self._json_tree.column('type', width=70, minwidth=50, anchor=tk.CENTER, stretch=False)
+        self._json_result_tree.column('key', width=160, minwidth=100, anchor=tk.W)
+        self._json_result_tree.column('jtype', width=80, minwidth=60, anchor=tk.CENTER)
+        self._json_result_tree.column('constraints', width=180, minwidth=100, anchor=tk.W)
+        self._json_result_tree.column('actual', width=180, minwidth=100, anchor=tk.W)
+        self._json_result_tree.column('status', width=120, minwidth=80, anchor=tk.CENTER)
 
-        jv_scroll = ttk.Scrollbar(json_frame, orient=tk.VERTICAL, command=self._json_tree.yview)
-        jh_scroll = ttk.Scrollbar(json_frame, orient=tk.HORIZONTAL, command=self._json_tree.xview)
-        self._json_tree.configure(yscrollcommand=jv_scroll.set, xscrollcommand=jh_scroll.set)
+        jv_scroll = ttk.Scrollbar(json_frame, orient=tk.VERTICAL, command=self._json_result_tree.yview)
+        jh_scroll = ttk.Scrollbar(json_frame, orient=tk.HORIZONTAL, command=self._json_result_tree.xview)
+        self._json_result_tree.configure(yscrollcommand=jv_scroll.set, xscrollcommand=jh_scroll.set)
 
-        self._json_tree.grid(row=0, column=0, sticky='nsew')
+        self._json_result_tree.grid(row=0, column=0, sticky='nsew')
         jv_scroll.grid(row=0, column=1, sticky='ns')
         jh_scroll.grid(row=1, column=0, sticky='ew')
         json_frame.rowconfigure(0, weight=1)
         json_frame.columnconfigure(0, weight=1)
 
-        self._json_tree.tag_configure('str', foreground='#6a9955')
-        self._json_tree.tag_configure('num', foreground='#4fc1ff')
-        self._json_tree.tag_configure('bool', foreground='#ce9178')
-        self._json_tree.tag_configure('null', foreground='#808080')
-        self._json_tree.tag_configure('container', font=('', 9, 'bold'))
+        self._json_result_tree.tag_configure('match', foreground='green')
+        self._json_result_tree.tag_configure('mismatch', foreground='red')
+        self._json_result_tree.tag_configure('missing', foreground='orange')
+        self._json_result_tree.tag_configure('undefined', foreground='gray')
 
     def _build_status_bar(self):
         bottom_frame = ttk.Frame(self)
@@ -204,6 +204,14 @@ class ParsePanel(ttk.LabelFrame):
             display = f'{protocol_name} → {command_name}' if protocol_name and command_name else f'{len(fields)} 个字段'
             self._log_panel.log_info(f'[协议解析] 已加载协议: {display}')
 
+    def add_json_protocol(self, fields, example='', protocol_name='', command_name=''):
+        entry = JsonProtocolEntry(fields, example, protocol_name, command_name)
+        self._json_protocols.append(entry)
+        self._refresh_proto_list()
+        if self._log_panel:
+            display = f'{protocol_name} → {command_name}' if protocol_name and command_name else f'{len(fields)} 个字段'
+            self._log_panel.log_info(f'[协议解析] 已加载JSON协议: {display}')
+
     def remove_protocol(self, index: int):
         if 0 <= index < len(self._protocols):
             entry = self._protocols.pop(index)
@@ -211,20 +219,34 @@ class ParsePanel(ttk.LabelFrame):
             if self._log_panel:
                 display = f'{entry.protocol_name} → {entry.command_name}' if entry.protocol_name and entry.command_name else '未命名'
                 self._log_panel.log_info(f'[协议解析] 已移除协议: {display}')
+            return
+        json_start = len(self._protocols)
+        if 0 <= index - json_start < len(self._json_protocols):
+            entry = self._json_protocols.pop(index - json_start)
+            self._refresh_proto_list()
+            if self._log_panel:
+                display = f'{entry.protocol_name} → {entry.command_name}' if entry.protocol_name and entry.command_name else '未命名'
+                self._log_panel.log_info(f'[协议解析] 已移除JSON协议: {display}')
 
     def _refresh_proto_list(self):
         self._proto_listbox.delete(0, tk.END)
         for entry in self._protocols:
-            if entry.protocol_name and entry.command_name:
-                display = f'{entry.protocol_name} → {entry.command_name}'
-            elif entry.protocol_name:
-                display = entry.protocol_name
-            elif entry.fields:
-                display = f'{len(entry.fields)} 个字段'
-            else:
-                display = '(空)'
+            display = self._get_entry_display(entry, '[H] ')
             prefix = '✅ ' if entry.enabled else '☐ '
             self._proto_listbox.insert(tk.END, f'{prefix}{display}')
+        for entry in self._json_protocols:
+            display = self._get_entry_display(entry, '[J] ')
+            prefix = '✅ ' if entry.enabled else '☐ '
+            self._proto_listbox.insert(tk.END, f'{prefix}{display}')
+
+    def _get_entry_display(self, entry, pfx=''):
+        if entry.protocol_name and entry.command_name:
+            return f'{pfx}{entry.protocol_name} → {entry.command_name}'
+        elif entry.protocol_name:
+            return f'{pfx}{entry.protocol_name}'
+        elif entry.fields:
+            return f'{pfx}{len(entry.fields)} 个字段'
+        return f'{pfx}(空)'
 
     def _on_proto_select(self, event=None):
         pass
@@ -287,21 +309,30 @@ class ParsePanel(ttk.LabelFrame):
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        def _on_mousewheel(event):
-            canvas.yview_scroll(int(-1 * (event.delta / 120)), 'units')
-        canvas.bind('<Enter>', lambda e: canvas.bind_all('<MouseWheel>', _on_mousewheel))
-        canvas.bind('<Leave>', lambda e: canvas.unbind_all('<MouseWheel>'))
+        def _on_wheel(event):
+            canvas.yview_scroll(int(-1 * event.delta), 'units')
+        dialog.bind('<MouseWheel>', _on_wheel)
+        scroll_frame.bind('<MouseWheel>', _on_wheel)
+        main_frame.bind('<MouseWheel>', _on_wheel)
+        canvas.bind('<MouseWheel>', _on_wheel)
+        canvas.bind('<Enter>', lambda e: canvas.focus_set())
 
         check_vars = {}
         row = 0
+        proto_frames = {}
+        cmd_row_ranges = {}
         for proto, cmds in all_protos.items():
             proto_var = tk.BooleanVar(value=False)
             proto_frame = ttk.Frame(scroll_frame)
             proto_frame.grid(row=row, column=0, sticky=tk.W, pady=(4, 0))
-            ttk.Checkbutton(proto_frame, text=f'📁 {proto}',
-                           variable=proto_var).pack(side=tk.LEFT)
+            cb = ttk.Checkbutton(proto_frame, text=f'📁 {proto}',
+                                 variable=proto_var)
+            cb.pack(side=tk.LEFT)
+            proto_frames[proto] = proto_frame
+            collapse_var = tk.BooleanVar(value=True)
             row += 1
             cmd_vars = {}
+            cmd_frames = []
             for cmd_name in cmds:
                 cmd_var = tk.BooleanVar(value=False)
                 cmd_frame = ttk.Frame(scroll_frame)
@@ -309,25 +340,63 @@ class ParsePanel(ttk.LabelFrame):
                 ttk.Checkbutton(cmd_frame, text=f'  {cmd_name}',
                                variable=cmd_var).pack(side=tk.LEFT)
                 cmd_vars[cmd_name] = cmd_var
+                cmd_frames.append(cmd_frame)
+                cmd_frame.collapse_var = collapse_var
                 row += 1
-            check_vars[proto] = (proto_var, cmd_vars)
+            check_vars[proto] = (proto_var, cmd_vars, cmd_frames, collapse_var)
+
+            def _toggle_collapse(event=None, _frames=cmd_frames, _var=collapse_var, _cb=cb):
+                _var.set(not _var.get())
+                visible = _var.get()
+                for f in _frames:
+                    if visible:
+                        f.grid()
+                    else:
+                        f.grid_remove()
+            cb.bind('<Button-3>', _toggle_collapse)
+
+            def _on_proto_toggle(*args, _cmd_vars=cmd_vars, _proto_var=proto_var):
+                checked = _proto_var.get()
+                for cv in _cmd_vars.values():
+                    cv.set(checked)
+            proto_var.trace_add('write', _on_proto_toggle)
+
+        def _select_all():
+            for proto_var, cmd_vars, _, _ in check_vars.values():
+                proto_var.set(True)
+                for cv in cmd_vars.values():
+                    cv.set(True)
+
+        def _deselect_all():
+            for proto_var, cmd_vars, _, _ in check_vars.values():
+                proto_var.set(False)
+                for cv in cmd_vars.values():
+                    cv.set(False)
 
         btn_frame = ttk.Frame(dialog)
         btn_frame.pack(fill=tk.X, padx=10, pady=10)
-        ttk.Button(btn_frame, text='取消', command=dialog.destroy).pack(side=tk.RIGHT, padx=(4, 0))
-        ttk.Button(btn_frame, text='加载选中', command=lambda: self._do_load_selected(dialog, editor, all_protos, check_vars)).pack(side=tk.RIGHT)
+        ttk.Button(btn_frame, text='全选', command=_select_all, width=6).pack(side=tk.LEFT, padx=2)
+        ttk.Button(btn_frame, text='全不选', command=_deselect_all, width=6).pack(side=tk.LEFT, padx=2)
+        ttk.Button(btn_frame, text='取消', command=dialog.destroy, width=6).pack(side=tk.RIGHT, padx=(4, 0))
+        ttk.Button(btn_frame, text='加载选中', command=lambda: self._do_load_selected(dialog, editor, all_protos, check_vars), width=8).pack(side=tk.RIGHT)
 
     def _do_load_selected(self, dialog, editor, all_protos, check_vars):
         loaded = 0
-        for proto, (proto_var, cmd_vars) in check_vars.items():
+        for proto, (proto_var, cmd_vars, _, _) in check_vars.items():
             for cmd_name, cmd_var in cmd_vars.items():
                 if not cmd_var.get():
                     continue
                 cmd_info = all_protos[proto][cmd_name]
                 fields = cmd_info.get('fields', [])
-                if fields:
+                if not fields:
+                    continue
+                proto_type = cmd_info.get('type', 'hex') if isinstance(cmd_info, dict) else 'hex'
+                if proto_type == 'json':
+                    example = cmd_info.get('example', '')
+                    self.add_json_protocol(fields, example, proto, cmd_name)
+                else:
                     self.add_protocol(fields, proto, cmd_name)
-                    loaded += 1
+                loaded += 1
         if loaded == 0:
             messagebox.showinfo('提示', '请至少勾选一个协议命令', parent=self.winfo_toplevel())
             return
@@ -351,10 +420,6 @@ class ParsePanel(ttk.LabelFrame):
 
     def _on_auto_parse_toggle(self):
         if self._auto_parse_var.get():
-            if self._mode_var.get() == PARSE_MODE_HEX and not self._protocols:
-                self._auto_parse_var.set(False)
-                messagebox.showwarning('提示', 'HEX 模式请先添加协议', parent=self.winfo_toplevel())
-                return
             if self._log_panel:
                 self._log_panel.log_info('[协议解析] 自动解析已开启')
         else:
@@ -365,43 +430,54 @@ class ParsePanel(ttk.LabelFrame):
         if not self._auto_parse_var.get() or not raw_str:
             return
 
-        mode = self._mode_var.get()
+        # 先尝试将 HEX 字符串解码为 UTF-8 文本，再尝试 JSON
+        decoded = None
+        try:
+            hex_clean = ''.join(c for c in raw_str if c in '0123456789abcdefABCDEF')
+            if hex_clean:
+                if len(hex_clean) % 2 != 0:
+                    hex_clean = hex_clean[:-1]
+                decoded = bytes.fromhex(hex_clean).decode('utf-8')
+        except:
+            pass
 
-        # JSON 模式或自动模式：先尝试 JSON
-        if mode in (PARSE_MODE_AUTO, PARSE_MODE_JSON):
+        json_candidates = [raw_str, decoded] if decoded else [raw_str]
+        for candidate in json_candidates:
+            if not candidate:
+                continue
             try:
-                data = json.loads(raw_str)
-                self._input_var.set(raw_str)
-                self._show_json_result(data)
+                data = json.loads(candidate)
+                self._input_var.set(candidate)
+                if self._json_protocols:
+                    entry = self._get_selected_json_entry()
+                    if entry:
+                        self._parse_json_with_fields(data, entry)
+                    else:
+                        self._parse_json_with_fields(data, self._json_protocols[0])
+                else:
+                    self._show_json_result(data)
                 self._result_notebook.select(1)
                 if self._log_panel:
                     self._log_panel.log_info('[协议解析] ✅ JSON 解析完成')
                 return
             except (json.JSONDecodeError, ValueError):
-                if mode == PARSE_MODE_JSON:
-                    self._clear_results()
-                    self._status_var.set('❌ JSON 解析失败：无效的 JSON 数据')
-                    return
-                # 自动模式：JSON 失败则走 HEX
+                continue
 
-        # HEX 模式或自动模式（JSON 失败后）
-        if mode in (PARSE_MODE_AUTO, PARSE_MODE_HEX):
-            hex_chars = ''.join(c for c in raw_str if c in '0123456789abcdefABCDEF')
-            if not hex_chars:
-                if mode == PARSE_MODE_AUTO:
-                    self._clear_results()
-                    self._status_var.set('❌ 无法解析：既不是 JSON 也不是 HEX 数据')
-                return
-            formatted = ' '.join(f'{hex_chars[i:i+2].upper()}' for i in range(0, len(hex_chars), 2))
-            self._input_var.set(formatted)
-            matched, proto_display = self._try_match_all(formatted)
-            if matched:
-                self._status_var.set(f'✅ 匹配协议: {proto_display}')
-                self._result_notebook.select(0)
-                if self._log_panel:
-                    self._log_panel.log_info(f'[协议解析] ✅ 自动匹配: {proto_display}')
-            else:
-                self._status_var.set('❌ 未匹配到任何协议')
+        hex_chars = ''.join(c for c in raw_str if c in '0123456789abcdefABCDEF')
+        if not hex_chars:
+            self._clear_results()
+            self._status_var.set('❌ 无法解析：既不是 JSON 也不是 HEX 数据')
+            return
+        formatted = ' '.join(f'{hex_chars[i:i+2].upper()}' for i in range(0, len(hex_chars), 2))
+        self._input_var.set(formatted)
+        matched, proto_display = self._try_match_all(formatted)
+        if matched:
+            self._status_var.set(f'✅ 匹配协议: {proto_display}')
+            self._result_notebook.select(0)
+            if self._log_panel:
+                self._log_panel.log_info(f'[协议解析] ✅ 自动匹配: {proto_display}')
+        else:
+            self._status_var.set('❌ 未匹配到任何协议')
 
     def _try_match_all(self, hex_str: str):
         try:
@@ -446,65 +522,208 @@ class ParsePanel(ttk.LabelFrame):
         self._clear_results()
         self._status_var.set('✅ JSON 解析完成')
         self._status_label.configure(foreground='green')
+        self._match_count_var.set('字段数: 0 (无字段定义)')
 
-        field_count = [0]
+        # 如果没有字段定义，显示原始树形结构
+        for item in self._json_result_tree.get_children():
+            self._json_result_tree.delete(item)
 
-        for item in self._json_tree.get_children():
-            self._json_tree.delete(item)
+        def flatten_json(obj, path='', results=None):
+            if results is None:
+                results = []
+            if isinstance(obj, dict):
+                for key, value in obj.items():
+                    cur_path = f'{path}.{key}' if path else key
+                    if isinstance(value, (dict, list)):
+                        flatten_json(value, cur_path, results)
+                    else:
+                        results.append((cur_path, value))
+            elif isinstance(obj, list):
+                for i, value in enumerate(obj):
+                    cur_path = f'{path}[{i}]'
+                    if isinstance(value, (dict, list)):
+                        flatten_json(value, cur_path, results)
+                    else:
+                        results.append((cur_path, value))
+            return results
 
-        self._json_tree.insert('', tk.END, iid='root', text='', open=True,
-                               values=('{...}', '', ''), tags=('container',))
-        self._build_json_tree('root', data, field_count)
-        self._match_count_var.set(f'字段数: {field_count[0]}')
+        for path, value in flatten_json(data):
+            typ = type(value).__name__
+            self._json_result_tree.insert('', tk.END,
+                                          values=(path, typ, '', str(value), ''),
+                                          tags=('undefined',))
 
-    def _build_json_tree(self, parent, data, field_count):
-        import math
+    def _get_selected_json_entry(self):
+        sel = self._proto_listbox.curselection()
+        if sel:
+            idx = sel[0]
+            json_start = len(self._protocols)
+            if idx >= json_start:
+                return self._json_protocols[idx - json_start]
+        return None
+
+    def _parse_json_with_fields(self, data, entry: JsonProtocolEntry):
+        self._clear_results()
+        self._status_var.set('🔍 JSON 字段比对中...')
+
+        fields = entry.fields
+        for item in self._json_result_tree.get_children():
+            self._json_result_tree.delete(item)
+
+        match_count = 0
+        total_count = 0
+        status_tag = 'match'
+
+        data_keys = set()
+        self._collect_json_keys(data, data_keys)
+
+        defined_keys = set()
+        for f in fields:
+            key = f.get('key', '')
+            if key:
+                defined_keys.add(key)
+
+        for f in fields:
+            key = f.get('key', '')
+            if not key:
+                continue
+            total_count += 1
+            expected_type = f.get('type', 'string')
+            required = f.get('required', False)
+            enum_vals = f.get('enum', [])
+            min_val = f.get('minimum')
+            max_val = f.get('maximum')
+            pattern = f.get('pattern', '')
+
+            # 构建约束描述
+            constraints_parts = []
+            if required:
+                constraints_parts.append('必填')
+            if enum_vals:
+                constraints_parts.append(f'enum:{len(enum_vals)}项')
+            if min_val is not None:
+                constraints_parts.append(f'≥{min_val}')
+            if max_val is not None:
+                constraints_parts.append(f'≤{max_val}')
+            if pattern:
+                constraints_parts.append('regex')
+            constraints_str = ', '.join(constraints_parts) if constraints_parts else '(无)'
+
+            # 获取实际值
+            actual_value = self._get_json_value(data, key)
+
+            if actual_value is None:
+                status = '⚠️ 缺失'
+                status_tag = 'missing'
+            else:
+                actual_type = type(actual_value).__name__
+                actual_display = str(actual_value)
+                status, status_tag = self._check_json_constraint(
+                    actual_value, actual_type, expected_type,
+                    enum_vals, min_val, max_val, pattern
+                )
+                if '✅' in status:
+                    match_count += 1
+
+            self._json_result_tree.insert('', tk.END,
+                                          values=(key, expected_type, constraints_str,
+                                                  str(actual_value) if actual_value is not None else '(缺失)',
+                                                  status),
+                                          tags=(status_tag,))
+
+        # 标记未定义字段
+        undefined_keys = data_keys - defined_keys
+        for key in sorted(undefined_keys):
+            val = self._get_json_value(data, key)
+            self._json_result_tree.insert('', tk.END,
+                                          values=(key, '(未知)', '(未定义)', str(val) if val is not None else '', '⚠️ 未定义'),
+                                          tags=('undefined',))
+            total_count += 1
+
+        self._match_count_var.set(f'匹配: {match_count}/{len(fields)}')
+        if match_count == len(fields):
+            self._status_var.set('✅ JSON 全部字段匹配')
+            self._status_label.configure(foreground='green')
+        elif match_count > 0:
+            self._status_var.set(f'⚠️ 部分匹配 ({match_count}/{len(fields)})')
+            self._status_label.configure(foreground='orange')
+        else:
+            self._status_var.set('❌ 全部不匹配')
+            self._status_label.configure(foreground='red')
+
+    def _collect_json_keys(self, data, keys, prefix=''):
         if isinstance(data, dict):
-            for key, value in data.items():
-                iid = f'{parent}_{key}'
-                field_count[0] += 1
-                if isinstance(value, (dict, list)):
-                    type_str = 'object' if isinstance(value, dict) else f'array[{len(value)}]'
-                    self._json_tree.insert(parent, tk.END, iid=iid, text='',
-                                           open=False,
-                                           values=(key, '', type_str),
-                                           tags=('container',))
-                    self._build_json_tree(iid, value, field_count)
-                else:
-                    val_str, typ = self._format_json_value(value)
-                    self._json_tree.insert(parent, tk.END, iid=iid, text='',
-                                           values=(key, val_str, typ),
-                                           tags=(typ,))
+            for k, v in data.items():
+                full_key = f'{prefix}.{k}' if prefix else k
+                keys.add(full_key)
         elif isinstance(data, list):
-            for idx, value in enumerate(data):
-                iid = f'{parent}_{idx}'
-                field_count[0] += 1
-                key = f'[{idx}]'
-                if isinstance(value, (dict, list)):
-                    type_str = 'object' if isinstance(value, dict) else f'array[{len(value)}]'
-                    self._json_tree.insert(parent, tk.END, iid=iid, text='',
-                                           open=False,
-                                           values=(key, '', type_str),
-                                           tags=('container',))
-                    self._build_json_tree(iid, value, field_count)
-                else:
-                    val_str, typ = self._format_json_value(value)
-                    self._json_tree.insert(parent, tk.END, iid=iid, text='',
-                                           values=(key, val_str, typ),
-                                           tags=(typ,))
+            for i, v in enumerate(data):
+                full_key = f'{prefix}[{i}]'
+                keys.add(full_key)
 
-    def _format_json_value(self, value):
-        if isinstance(value, bool):
-            return str(value).lower(), 'bool'
-        if isinstance(value, int):
-            return str(value), 'num'
-        if isinstance(value, float):
-            if value == int(value):
-                return str(int(value)), 'num'
-            return f'{value:.6f}', 'num'
-        if value is None:
-            return 'null', 'null'
-        return str(value), 'str'
+    def _get_json_value(self, data, key_path):
+        parts = key_path.replace('[', '.').replace(']', '').split('.')
+        current = data
+        for part in parts:
+            if isinstance(current, dict):
+                if part in current:
+                    current = current[part]
+                else:
+                    return None
+            elif isinstance(current, list):
+                try:
+                    idx = int(part)
+                    if 0 <= idx < len(current):
+                        current = current[idx]
+                    else:
+                        return None
+                except (ValueError, IndexError):
+                    return None
+            else:
+                return None
+        return current
+
+    def _check_json_constraint(self, actual_value, actual_type, expected_type,
+                                enum_vals, min_val, max_val, pattern):
+        # 类型检查
+        type_map = {
+            'string': 'str',
+            'integer': 'int',
+            'number': ('int', 'float'),
+            'boolean': 'bool',
+            'object': 'dict',
+            'array': 'list',
+        }
+        expected_py_types = type_map.get(expected_type, expected_type)
+        if isinstance(expected_py_types, str):
+            if actual_type != expected_py_types:
+                return '❌ 类型', 'mismatch'
+        else:
+            if actual_type not in expected_py_types:
+                return '❌ 类型', 'mismatch'
+
+        # 枚举检查
+        if enum_vals:
+            if actual_value not in enum_vals and str(actual_value) not in [str(e) for e in enum_vals]:
+                return '❌ 枚举', 'mismatch'
+
+        # 范围检查
+        if min_val is not None or max_val is not None:
+            if isinstance(actual_value, (int, float)):
+                if min_val is not None and actual_value < min_val:
+                    return '❌ 超范围', 'mismatch'
+                if max_val is not None and actual_value > max_val:
+                    return '❌ 超范围', 'mismatch'
+
+        # 正则检查
+        if pattern and isinstance(actual_value, str):
+            try:
+                if not re.match(pattern, actual_value):
+                    return '❌ 正则', 'mismatch'
+            except re.error:
+                pass
+
+        return '✅ 匹配', 'match'
 
     # ============================================================
     # HEX 解析执行
@@ -521,7 +740,22 @@ class ParsePanel(ttk.LabelFrame):
         if not sel:
             messagebox.showwarning('提示', '请先在已加载协议列表中选择一个协议', parent=self.winfo_toplevel())
             return
-        entry = self._protocols[sel[0]]
+
+        idx = sel[0]
+        json_start = len(self._protocols)
+        if idx >= json_start:
+            entry = self._json_protocols[idx - json_start]
+            if entry.example:
+                self._input_var.set(entry.example)
+                try:
+                    data = json.loads(entry.example)
+                    self._parse_json_with_fields(data, entry)
+                    self._result_notebook.select(1)
+                except json.JSONDecodeError:
+                    self._msgbox('提示', '示例数据无效', 'warning')
+            return
+
+        entry = self._protocols[idx]
         if not entry.fields:
             messagebox.showwarning('提示', '该协议没有字段定义', parent=self.winfo_toplevel())
             return
@@ -537,39 +771,31 @@ class ParsePanel(ttk.LabelFrame):
         self._total_len_var.set(f'数据长度: 0 字节')
         self._status_var.set(f'📋 已加载字段: {display}')
 
+    def _msgbox(self, title, message, kind='info'):
+        win = self.winfo_toplevel()
+        getattr(messagebox, f'show{kind}')(title, message, parent=win)
+
     def _do_parse(self):
         input_str = self._input_var.get().strip()
         if not input_str:
             messagebox.showwarning('提示', '请输入待解析的数据', parent=self.winfo_toplevel())
             return
 
-        mode = self._mode_var.get()
-
-        # JSON 模式
-        if mode == PARSE_MODE_JSON:
-            try:
-                data = json.loads(input_str)
-                self._show_json_result(data)
-                self._result_notebook.select(1)
-            except (json.JSONDecodeError, ValueError) as e:
-                messagebox.showerror('JSON 解析失败', str(e), parent=self.winfo_toplevel())
-            return
-
-        # HEX 模式
-        if mode == PARSE_MODE_HEX:
-            self._do_hex_parse(input_str)
-            return
-
-        # 自动模式：先尝试 JSON
         try:
             data = json.loads(input_str)
-            self._show_json_result(data)
+            if self._json_protocols:
+                entry = self._get_selected_json_entry()
+                if entry:
+                    self._parse_json_with_fields(data, entry)
+                else:
+                    self._parse_json_with_fields(data, self._json_protocols[0])
+            else:
+                self._show_json_result(data)
             self._result_notebook.select(1)
             return
         except (json.JSONDecodeError, ValueError):
             pass
 
-        # 自动模式：JSON 失败则 HEX
         self._do_hex_parse(input_str)
 
     def _do_hex_parse(self, input_str):
@@ -579,8 +805,12 @@ class ParsePanel(ttk.LabelFrame):
         self._result_notebook.select(0)
         sel = self._proto_listbox.curselection()
         if sel:
-            entry = self._protocols[sel[0]]
-            self._parse_single(input_str, entry)
+            idx = sel[0]
+            if idx < len(self._protocols):
+                entry = self._protocols[idx]
+                self._parse_single(input_str, entry)
+            else:
+                messagebox.showwarning('提示', '当前协议不是 HEX 协议', parent=self.winfo_toplevel())
         else:
             self._parse_all(input_str)
 
@@ -758,8 +988,8 @@ class ParsePanel(ttk.LabelFrame):
     def _clear_results(self):
         for item in self._result_tree.get_children():
             self._result_tree.delete(item)
-        for item in self._json_tree.get_children():
-            self._json_tree.delete(item)
+        for item in self._json_result_tree.get_children():
+            self._json_result_tree.delete(item)
         self._status_var.set('就绪')
         self._match_count_var.set('匹配: 0/0')
         self._total_len_var.set('数据长度: 0 字节')
@@ -771,11 +1001,14 @@ class ParsePanel(ttk.LabelFrame):
         pass
 
     def _auto_format_input(self):
-        mode = self._mode_var.get()
-        if mode == PARSE_MODE_JSON:
+        raw = self._input_var.get().strip()
+        if not raw:
             return
-        raw = self._input_var.get()
+        if raw.startswith('{') or raw.startswith('['):
+            return
         hex_chars = ''.join(c for c in raw if c in '0123456789abcdefABCDEF')
+        if not hex_chars:
+            return
         formatted = ' '.join(f'{hex_chars[i:i+2].upper()}' for i in range(0, len(hex_chars), 2))
         if formatted != raw:
             cursor_pos = self._input_entry.index(tk.INSERT)
@@ -835,30 +1068,49 @@ class ParsePanel(ttk.LabelFrame):
                 'protocol_name': entry.protocol_name,
                 'command_name': entry.command_name,
                 'enabled': entry.enabled,
+                'proto_type': 'hex',
+            })
+        for entry in self._json_protocols:
+            protocols_data.append({
+                'fields': entry.fields,
+                'example': entry.example,
+                'protocol_name': entry.protocol_name,
+                'command_name': entry.command_name,
+                'enabled': entry.enabled,
+                'proto_type': 'json',
             })
         return {
             'protocols': protocols_data,
             'auto_parse': self._auto_parse_var.get(),
-            'parse_mode': self._mode_var.get(),
         }
 
     def load_settings(self, settings: dict):
         if not settings:
             return
         auto_parse = settings.get('auto_parse', False)
-        parse_mode = settings.get('parse_mode', '自动')
         protocols_data = settings.get('protocols', [])
         if protocols_data:
             self._protocols.clear()
+            self._json_protocols.clear()
             for p in protocols_data:
-                entry = ProtocolEntry(
-                    p.get('fields', []),
-                    p.get('protocol_name', ''),
-                    p.get('command_name', ''),
-                )
-                entry.enabled = p.get('enabled', True)
-                self._protocols.append(entry)
+                proto_type = p.get('proto_type', 'hex')
+                if proto_type == 'json':
+                    entry = JsonProtocolEntry(
+                        p.get('fields', []),
+                        p.get('example', ''),
+                        p.get('protocol_name', ''),
+                        p.get('command_name', ''),
+                    )
+                    entry.enabled = p.get('enabled', True)
+                    self._json_protocols.append(entry)
+                else:
+                    entry = ProtocolEntry(
+                        p.get('fields', []),
+                        p.get('protocol_name', ''),
+                        p.get('command_name', ''),
+                    )
+                    entry.enabled = p.get('enabled', True)
+                    self._protocols.append(entry)
             self._refresh_proto_list()
-        self._mode_var.set(parse_mode)
         if auto_parse:
             self._auto_parse_var.set(True)

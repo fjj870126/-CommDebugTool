@@ -23,15 +23,19 @@ class ToolTip:
     def _show_tip(self, event=None):
         if self.tip_window:
             return
+        display_text = getattr(self.widget, '_tooltip_text', None) or self.text
+        if not display_text:
+            return
         x = self.widget.winfo_rootx() + 20
         y = self.widget.winfo_rooty() + self.widget.winfo_height() + 5
         self.tip_window = tw = tk.Toplevel(self.widget)
         tw.wm_overrideredirect(True)
         tw.wm_geometry(f'+{x}+{y}')
-        label = tk.Label(tw, text=self.text, justify=tk.LEFT,
+        label = tk.Label(tw, text=display_text, justify=tk.LEFT,
                          background='#FFFFDD', foreground='#333333',
                          relief=tk.SOLID, borderwidth=1,
-                         font=('', 9), padx=6, pady=3)
+                         font=('Courier New', 9), padx=8, pady=4,
+                         wraplength=600)
         label.pack()
 
     def _hide_tip(self, event=None):
@@ -46,28 +50,26 @@ class FieldEditDialog(tk.Toplevel):
     def __init__(self, parent, title='编辑字段', field=None, field_names: list = None):
         super().__init__(parent)
         self.title(title)
-        self.withdraw()  # 先隐藏，避免在左上角闪现后再跳到中间
+        self.withdraw()
         self.resizable(False, False)
         self.result = None
         self._field_names = field_names or []
         self.transient(parent)
         self.grab_set()
         self.attributes('-topmost', True)
-        self.after(100, self._keep_on_top)  # 延迟确保生效
+        self.after(100, self._keep_on_top)
 
         frame = ttk.Frame(self, padding=12)
         frame.pack(fill=tk.BOTH, expand=True)
         frame.columnconfigure(1, weight=1)
         frame.columnconfigure(3, weight=1)
 
-        # 字段名
         ttk.Label(frame, text='字段名:').grid(row=0, column=0, sticky=tk.W, pady=4)
         self.name_var = tk.StringVar(value=field.get('name', '新字段') if field else '新字段')
         name_entry = ttk.Entry(frame, textvariable=self.name_var, width=20)
         name_entry.grid(row=0, column=1, padx=(8, 0), pady=4)
         add_entry_context_menu(name_entry)
 
-        # Hex值（支持 Hex/Dec 切换）
         self.value_label = ttk.Label(frame, text='Hex值:')
         self.value_label.grid(row=1, column=0, sticky=tk.W, pady=4)
         value_frame = ttk.Frame(frame)
@@ -82,13 +84,11 @@ class FieldEditDialog(tk.Toplevel):
         ttk.Radiobutton(value_frame, text='Dec', variable=self._input_mode,
                          value='dec', command=self._on_mode_switch).pack(side=tk.LEFT, padx=(2, 0))
 
-        # 字节数
         ttk.Label(frame, text='字节数:').grid(row=2, column=0, sticky=tk.W, pady=4)
         self.count_var = tk.StringVar(value=str(field.get('byte_count', 1)) if field else '1')
         count_spin = ttk.Spinbox(frame, textvariable=self.count_var, from_=1, to=256, width=8)
         count_spin.grid(row=2, column=1, padx=(8, 0), pady=4, sticky=tk.W)
 
-        # 类型
         ttk.Label(frame, text='类型:').grid(row=3, column=0, sticky=tk.W, pady=4)
         self.type_var = tk.StringVar(value=field.get('field_type', '数据') if field else '数据')
         type_cb = ttk.Combobox(frame, textvariable=self.type_var,
@@ -98,7 +98,6 @@ class FieldEditDialog(tk.Toplevel):
         type_cb.bind('<<ComboboxSelected>>', self._on_type_change)
         add_combobox_context_menu(type_cb)
 
-        # 数据类型（仅数据/固定值类型可用）
         ttk.Label(frame, text='数据类型:').grid(row=3, column=2, sticky=tk.W, pady=4, padx=(16, 0))
         self.parse_mode_var = tk.StringVar(value=field.get('parse_mode', '') if field else '')
         parse_mode_cb = ttk.Combobox(frame, textvariable=self.parse_mode_var,
@@ -108,14 +107,12 @@ class FieldEditDialog(tk.Toplevel):
         parse_mode_cb.bind('<<ComboboxSelected>>', self._on_parse_mode_change)
         add_combobox_context_menu(parse_mode_cb)
 
-        # 含义
         ttk.Label(frame, text='含义:').grid(row=8, column=0, sticky=tk.W, pady=4)
         self.desc_var = tk.StringVar(value=field.get('description', '') if field else '')
         desc_entry = ttk.Entry(frame, textvariable=self.desc_var, width=20)
         desc_entry.grid(row=8, column=1, padx=(8, 0), pady=4, sticky=tk.EW)
         add_entry_context_menu(desc_entry)
 
-        # 长度字段专用配置区
         self.len_config_frame = ttk.LabelFrame(frame, text=' 长度计算配置 ', padding=6)
         self.len_config_frame.grid(row=4, column=0, columnspan=2, sticky=tk.EW, pady=(8, 0))
 
@@ -151,7 +148,6 @@ class FieldEditDialog(tk.Toplevel):
         ttk.Radiobutton(r3, text='小端', variable=self.len_endian_var,
                          value='little').pack(side=tk.LEFT, padx=2)
 
-        # 初始化长度配置值
         if field and field.get('field_type') == '长度':
             if range_options and field.get('length_start', 0) < len(range_options):
                 self.len_start_var.set(range_options[field.get('length_start', 0)])
@@ -162,11 +158,8 @@ class FieldEditDialog(tk.Toplevel):
             self.len_start_var.set(range_options[0])
             self.len_end_var.set(range_options[-1])
 
-        # 校验字段专用配置区
         self.chk_config_frame = ttk.LabelFrame(frame, text=' 校验配置 ', padding=6)
         self.chk_config_frame.grid(row=5, column=0, columnspan=2, sticky=tk.EW, pady=(8, 0))
-
-        from packet.checksum import get_algorithm_names
 
         c1 = ttk.Frame(self.chk_config_frame)
         c1.pack(fill=tk.X, pady=2)
@@ -204,7 +197,6 @@ class FieldEditDialog(tk.Toplevel):
         ttk.Radiobutton(c4, text='小端', variable=self.chk_endian_var,
                          value='little').pack(side=tk.LEFT, padx=2)
 
-        # 初始化校验配置值
         if field and field.get('field_type') == '校验':
             self.chk_algo_var.set(field.get('checksum_algorithm', 'CRC16/MODBUS'))
             if range_options and field.get('checksum_start', 0) < len(range_options):
@@ -219,12 +211,10 @@ class FieldEditDialog(tk.Toplevel):
             else:
                 self.chk_end_var.set(range_options[0])
 
-        # ===== 枚举映射配置区 =====
         self._enum_frame = ttk.LabelFrame(frame, text=' 枚举值映射配置 ', padding=6)
         self._enum_frame.grid(row=6, column=0, columnspan=4, sticky=tk.EW, pady=(4, 0))
-        self._enum_frame.grid_remove()  # 默认隐藏
+        self._enum_frame.grid_remove()
 
-        # 输入模式切换（Hex/Dec）
         enum_mode_frame = ttk.Frame(self._enum_frame)
         enum_mode_frame.pack(fill=tk.X, pady=(0, 4))
         ttk.Label(enum_mode_frame, text='输入模式:').pack(side=tk.LEFT, padx=(0, 4))
@@ -234,7 +224,6 @@ class FieldEditDialog(tk.Toplevel):
         ttk.Radiobutton(enum_mode_frame, text='Hex', variable=self._enum_input_mode,
                         value='hex', command=self._on_enum_mode_change).pack(side=tk.LEFT, padx=2)
 
-        # 枚举列表
         enum_list_frame = ttk.Frame(self._enum_frame)
         enum_list_frame.pack(fill=tk.BOTH, expand=True)
 
@@ -244,44 +233,34 @@ class FieldEditDialog(tk.Toplevel):
         enum_scroll.pack(side=tk.RIGHT, fill=tk.Y)
         self.enum_listbox.configure(yscrollcommand=enum_scroll.set)
 
-        # 初始化枚举值
         self._enum_mappings = field.get('enum_mappings', []) if field else []
         self._refresh_enum_listbox()
 
-        # 枚举按钮
         enum_btn_frame = ttk.Frame(self._enum_frame)
         enum_btn_frame.pack(fill=tk.X, pady=(4, 0))
         ttk.Button(enum_btn_frame, text='添加', command=self._add_enum_mapping, width=8).pack(side=tk.LEFT, padx=2)
         ttk.Button(enum_btn_frame, text='删除', command=self._delete_enum_mapping, width=8).pack(side=tk.LEFT, padx=2)
 
-        # ===== 位标志配置区 =====
         self._bit_frame = ttk.LabelFrame(frame, text=' 位标志配置 ', padding=6)
         self._bit_frame.grid(row=7, column=0, columnspan=4, sticky=tk.EW, pady=(4, 0))
-        self._bit_frame.grid_remove()  # 默认隐藏
+        self._bit_frame.grid_remove()
 
-        # 位标志说明
         ttk.Label(self._bit_frame, text='请勾选需要定义的位，并填写含义：',
                  font=('', 9, 'bold')).pack(anchor=tk.W, pady=(0, 6))
 
-        # 位标志容器
         self._bit_inner = ttk.Frame(self._bit_frame)
         self._bit_inner.pack(fill=tk.BOTH, expand=True)
 
-        # 初始化位标志
         self._bit_flags = field.get('bit_flags', []) if field else []
         self._bit_checkboxes = []
         self._bit_entries = []
         self._build_bit_checkboxes()
 
-        # 监听字节数变化
         self.count_var.trace_add('write', self._on_byte_count_change)
 
-        # 根据类型显示/隐藏配置区
         self._on_type_change()
-        # 根据解析方式显示/隐藏枚举和位标志配置区
         self._on_parse_mode_change()
 
-        # 按钮
         btn_frame = ttk.Frame(frame)
         btn_frame.grid(row=9, column=0, columnspan=4, pady=(12, 0))
         ttk.Button(btn_frame, text='确定', command=self._ok, width=8).pack(side=tk.LEFT, padx=4)
@@ -291,15 +270,13 @@ class FieldEditDialog(tk.Toplevel):
         x = parent.winfo_rootx() + (parent.winfo_width() - self.winfo_width()) // 2
         y = parent.winfo_rooty() + (parent.winfo_height() - self.winfo_height()) // 2
         self.geometry(f'+{x}+{y}')
-        self.deiconify()  # 显示对话框
+        self.deiconify()
         self.wait_window()
 
     def _on_mode_switch(self):
-        """Hex / Dec 切换时转换当前输入值"""
         raw = self.hex_var.get().strip()
         mode = self._input_mode.get()
         if mode == 'dec':
-            # hex -> dec
             self.value_label.config(text='Dec值:')
             try:
                 val = int(raw, 16) if raw else 0
@@ -307,7 +284,6 @@ class FieldEditDialog(tk.Toplevel):
             except ValueError:
                 pass
         else:
-            # dec -> hex
             self.value_label.config(text='Hex值:')
             try:
                 val = int(raw) if raw else 0
@@ -319,7 +295,6 @@ class FieldEditDialog(tk.Toplevel):
                 pass
 
     def _get_hex_value(self) -> str:
-        """获取当前输入值的 hex 表示（无论当前输入模式）"""
         raw = self.hex_var.get().strip().replace(' ', '')
         if self._input_mode.get() == 'dec':
             try:
@@ -333,14 +308,12 @@ class FieldEditDialog(tk.Toplevel):
         return raw
 
     def _keep_on_top(self):
-        """保持窗口置顶（macOS 增强处理）"""
         try:
             self.attributes('-topmost', True)
         except Exception:
             pass
 
     def destroy(self):
-        """销毁对话框"""
         try:
             self.grab_release()
         except:
@@ -358,30 +331,24 @@ class FieldEditDialog(tk.Toplevel):
         else:
             self.chk_config_frame.grid_remove()
 
-        # 当类型从长度或校验切换为数据或固定值时，根据字节数设置默认 hex 值
         if self.type_var.get() in ('数据', '固定值'):
             current_hex = self.hex_var.get().strip()
             if not current_hex or current_hex == '(自动)':
                 try:
                     byte_count = int(self.count_var.get())
-                    # 根据字节数生成默认值，例如 2字节 -> "00 00"
                     self.hex_var.set(' '.join(['00'] * byte_count))
                 except ValueError:
                     self.hex_var.set('00')
 
-        # 固定值类型：解析方式固定为"固定值"，禁用下拉框
         if self.type_var.get() == '固定值':
             self.parse_mode_var.set('固定值')
-            # 禁用解析方式下拉框
             for child in self.winfo_children():
                 self._set_combobox_state(child, 'disabled')
         else:
-            # 启用解析方式下拉框
             for child in self.winfo_children():
                 self._set_combobox_state(child, 'readonly')
 
     def _set_combobox_state(self, widget, state):
-        """递归设置 Combobox 的状态"""
         if isinstance(widget, ttk.Combobox):
             widget.configure(state=state)
         for child in widget.winfo_children():
@@ -389,26 +356,20 @@ class FieldEditDialog(tk.Toplevel):
 
     def _on_parse_mode_change(self, event=None):
         mode = self.parse_mode_var.get()
-        # 枚举映射：显示枚举配置区，隐藏位标志配置区
         if mode == '枚举映射':
             self._enum_frame.grid()
             self._bit_frame.grid_remove()
-        # 位解析：显示枚举配置区（用多选框），隐藏位标志配置区
         elif mode == '位解析':
             self._enum_frame.grid()
             self._bit_frame.grid_remove()
-        # 位标志：显示位标志配置区，隐藏枚举配置区
         elif mode == '位标志':
             self._enum_frame.grid_remove()
             self._bit_frame.grid()
-        # 固定值：都隐藏
         else:
             self._enum_frame.grid_remove()
             self._bit_frame.grid_remove()
 
     def _build_bit_checkboxes(self):
-        """根据字节数动态生成位标志复选框"""
-        # 清空现有复选框
         for w in self._bit_inner.winfo_children():
             w.destroy()
         self._bit_checkboxes.clear()
@@ -434,7 +395,6 @@ class FieldEditDialog(tk.Toplevel):
             add_entry_context_menu(entry)
             self._bit_entries.append(entry_var)
 
-        # 恢复保存的值
         for flag in self._bit_flags:
             bit_idx = flag['bit']
             if 0 <= bit_idx < len(self._bit_checkboxes):
@@ -442,12 +402,10 @@ class FieldEditDialog(tk.Toplevel):
                 self._bit_entries[bit_idx].set(flag['label'])
 
     def _on_byte_count_change(self, *args):
-        """字节数变化时重新生成位标志复选框"""
         if self.parse_mode_var.get() == '位标志':
             self._build_bit_checkboxes()
 
     def _on_enum_mode_change(self):
-        """枚举输入模式切换时刷新列表显示"""
         self._refresh_enum_listbox()
 
     def _refresh_enum_listbox(self):
@@ -462,15 +420,12 @@ class FieldEditDialog(tk.Toplevel):
             self.enum_listbox.insert(tk.END, f"{display_value} -> {label}")
 
     def _add_enum_mapping(self):
-        """添加枚举映射 - 支持 Hex/Dec 输入和位解析模式"""
         from tkinter import simpledialog
 
-        # 如果是"位解析"模式，使用多选框对话框
         if self.parse_mode_var.get() == '位解析':
             self._add_enum_mapping_with_bits()
             return
 
-        # 普通枚举映射：根据输入模式提示不同的输入
         if self._enum_input_mode.get() == 'hex':
             value_str = simpledialog.askstring('枚举值', '请输入十六进制数值 (如: FF):', parent=self)
             if not value_str:
@@ -493,8 +448,6 @@ class FieldEditDialog(tk.Toplevel):
         self._refresh_enum_listbox()
 
     def _add_enum_mapping_with_bits(self):
-        """位解析模式 - 使用多选框对话框添加枚举值"""
-        # 创建自定义对话框
         dialog = tk.Toplevel(self)
         dialog.title('添加位解析值')
         dialog.withdraw()
@@ -643,6 +596,191 @@ class FieldEditDialog(tk.Toplevel):
         }
         self.destroy()
 
+    @staticmethod
+    def _msgbox(title, message, kind='info'):
+        getattr(messagebox, f'show{kind}')(title, message)
+
+    def _center_toplevel(self, win, w, h):
+        win.withdraw()
+        win.update_idletasks()
+        pw = self.winfo_screenwidth()
+        ph = self.winfo_screenheight()
+        pw2 = self.winfo_rootx() + self.winfo_width()
+        px = max(0, (pw - w) // 2)
+        py = max(0, (ph - h) // 2)
+        win.geometry(f'{w}x{h}+{px}+{py}')
+        win.deiconify()
+
+
+class JsonFieldEditDialog(tk.Toplevel):
+    """JSON 字段编辑对话框 - 支持 JSON Schema 约束"""
+
+    def __init__(self, parent, title='编辑JSON字段', field=None):
+        super().__init__(parent)
+        self.title(title)
+        self.withdraw()
+        self.resizable(False, False)
+        self.result = None
+        self.transient(parent)
+        self.grab_set()
+        self.attributes('-topmost', True)
+
+        frame = ttk.Frame(self, padding=12)
+        frame.pack(fill=tk.BOTH, expand=True)
+        frame.columnconfigure(1, weight=1)
+        frame.columnconfigure(3, weight=1)
+
+        # 键路径
+        ttk.Label(frame, text='键路径:').grid(row=0, column=0, sticky=tk.W, pady=3)
+        self.key_var = tk.StringVar(value=field.get('key', '') if field else '')
+        key_entry = ttk.Entry(frame, textvariable=self.key_var, width=22)
+        key_entry.grid(row=0, column=1, padx=(8, 0), pady=3, sticky=tk.EW)
+        add_entry_context_menu(key_entry)
+
+        # 类型
+        ttk.Label(frame, text='类型:').grid(row=0, column=2, sticky=tk.W, pady=3, padx=(16, 0))
+        self.type_var = tk.StringVar(value=field.get('type', 'string') if field else 'string')
+        type_cb = ttk.Combobox(frame, textvariable=self.type_var,
+                               values=['string', 'integer', 'number', 'boolean', 'object', 'array'],
+                               state='readonly', width=10)
+        type_cb.grid(row=0, column=3, padx=(4, 0), pady=3, sticky=tk.W)
+
+        # 必填
+        ttk.Label(frame, text='必填:').grid(row=1, column=0, sticky=tk.W, pady=3)
+        self.required_var = tk.BooleanVar(value=field.get('required', False) if field else False)
+        ttk.Checkbutton(frame, variable=self.required_var).grid(row=1, column=1, padx=(8, 0), pady=3, sticky=tk.W)
+
+        # 默认值
+        ttk.Label(frame, text='默认值:').grid(row=2, column=0, sticky=tk.W, pady=3)
+        self.default_var = tk.StringVar(value=str(field.get('default', '')) if field else '')
+        default_entry = ttk.Entry(frame, textvariable=self.default_var, width=22)
+        default_entry.grid(row=2, column=1, padx=(8, 0), pady=3, sticky=tk.EW)
+        add_entry_context_menu(default_entry)
+
+        # 枚举
+        ttk.Label(frame, text='枚举(逗号分隔):').grid(row=3, column=0, sticky=tk.W, pady=3)
+        self.enum_var = tk.StringVar(value=','.join(field.get('enum', [])) if field else '')
+        enum_entry = ttk.Entry(frame, textvariable=self.enum_var, width=22)
+        enum_entry.grid(row=3, column=1, padx=(8, 0), pady=3, sticky=tk.EW)
+        add_entry_context_menu(enum_entry)
+
+        # 最小值
+        ttk.Label(frame, text='最小值:').grid(row=4, column=0, sticky=tk.W, pady=3)
+        self.min_var = tk.StringVar(value=str(field.get('minimum', '')) if field and field.get('minimum') is not None else '')
+        self.min_entry = ttk.Entry(frame, textvariable=self.min_var, width=10)
+        self.min_entry.grid(row=4, column=1, padx=(8, 0), pady=3, sticky=tk.W)
+        add_entry_context_menu(self.min_entry)
+
+        # 最大值
+        ttk.Label(frame, text='最大值:').grid(row=4, column=2, sticky=tk.W, pady=3, padx=(16, 0))
+        self.max_var = tk.StringVar(value=str(field.get('maximum', '')) if field and field.get('maximum') is not None else '')
+        self.max_entry = ttk.Entry(frame, textvariable=self.max_var, width=10)
+        self.max_entry.grid(row=4, column=3, padx=(4, 0), pady=3, sticky=tk.W)
+        add_entry_context_menu(self.max_entry)
+
+        # 正则
+        ttk.Label(frame, text='正则:').grid(row=5, column=0, sticky=tk.W, pady=3)
+        self.pattern_var = tk.StringVar(value=field.get('pattern', '') if field else '')
+        pattern_entry = ttk.Entry(frame, textvariable=self.pattern_var, width=22)
+        pattern_entry.grid(row=5, column=1, padx=(8, 0), pady=3, sticky=tk.EW)
+        add_entry_context_menu(pattern_entry)
+
+        # 描述
+        ttk.Label(frame, text='描述:').grid(row=6, column=0, sticky=tk.W, pady=3)
+        self.desc_var = tk.StringVar(value=field.get('description', '') if field else '')
+        desc_entry = ttk.Entry(frame, textvariable=self.desc_var, width=22)
+        desc_entry.grid(row=6, column=1, padx=(8, 0), pady=3, columnspan=3, sticky=tk.EW)
+        add_entry_context_menu(desc_entry)
+
+        # 提示
+        tip_frame = ttk.Frame(frame)
+        tip_frame.grid(row=7, column=0, columnspan=4, pady=(8, 0))
+        tip_text = '提示: 约束字段留空表示无约束 | 枚举值用逗号分隔 (如: online,offline,error)'
+        ttk.Label(tip_frame, text=tip_text, font=('', 8), foreground='gray').pack()
+
+        # 按钮
+        btn_frame = ttk.Frame(frame)
+        btn_frame.grid(row=8, column=0, columnspan=4, pady=(12, 0))
+        ttk.Button(btn_frame, text='确定', command=self._ok, width=8).pack(side=tk.LEFT, padx=4)
+        ttk.Button(btn_frame, text='取消', command=self.destroy, width=8).pack(side=tk.LEFT, padx=4)
+
+        self.update_idletasks()
+        x = parent.winfo_rootx() + (parent.winfo_width() - self.winfo_width()) // 2
+        y = parent.winfo_rooty() + (parent.winfo_height() - self.winfo_height()) // 2
+        self.geometry(f'+{x}+{y}')
+        self.deiconify()
+        self.wait_window()
+
+    def _ok(self):
+        key = self.key_var.get().strip()
+        if not key:
+            messagebox.showwarning('提示', '请输入键路径', parent=self)
+            return
+
+        ftype = self.type_var.get()
+
+        default_raw = self.default_var.get().strip()
+        default_val = self._parse_default(ftype, default_raw) if default_raw else None
+
+        enum_raw = self.enum_var.get().strip()
+        enum_vals = []
+        if enum_raw:
+            for item in [x.strip() for x in enum_raw.split(',') if x.strip()]:
+                enum_vals.append(self._parse_default(ftype, item))
+
+        min_val = self._parse_number(self.min_var.get().strip())
+        max_val = self._parse_number(self.max_var.get().strip())
+
+        pattern = self.pattern_var.get().strip() or ''
+
+        self.result = {
+            'key': key,
+            'type': ftype,
+            'required': self.required_var.get(),
+            'default': default_val,
+            'enum': enum_vals if enum_vals else [],
+            'minimum': min_val,
+            'maximum': max_val,
+            'pattern': pattern if pattern else '',
+            'description': self.desc_var.get().strip(),
+        }
+        self.destroy()
+
+    @staticmethod
+    def _parse_default(ftype, raw):
+        if ftype == 'integer':
+            try:
+                return int(raw)
+            except ValueError:
+                return raw
+        elif ftype == 'number':
+            try:
+                return float(raw)
+            except ValueError:
+                return raw
+        elif ftype == 'boolean':
+            return raw.lower() in ('true', '1', 'yes')
+        else:
+            return raw
+
+    @staticmethod
+    def _parse_number(raw):
+        if not raw:
+            return None
+        try:
+            if '.' in raw:
+                return float(raw)
+            return int(raw)
+        except ValueError:
+            return None
+
+    def destroy(self):
+        try:
+            self.grab_release()
+        except:
+            pass
+        super().destroy()
+
 
 class ProtocolEditor(ttk.LabelFrame):
     """协议编辑器 - 合并模板库 + 组包 + 解析"""
@@ -655,6 +793,7 @@ class ProtocolEditor(ttk.LabelFrame):
         self._custom_templates = {}
         self._fields = []
         self._undo_stack = []
+        self._current_proto_type = 'hex'
         self._build_ui()
         self._load_presets()
 
@@ -663,7 +802,7 @@ class ProtocolEditor(ttk.LabelFrame):
         getattr(messagebox, f'show{kind}')(title, message, parent=win)
 
     def _askyesno(self, title, message):
-        return self._askyesno(title, message, parent=self.winfo_toplevel())
+        return messagebox.askyesno(title, message, parent=self.winfo_toplevel())
 
     def _center_toplevel(self, win, w, h):
         win.withdraw()
@@ -727,21 +866,18 @@ class ProtocolEditor(ttk.LabelFrame):
         self._desc_var = tk.StringVar(value='')
         ttk.Label(info_frame, textvariable=self._desc_var, foreground='gray').pack(side=tk.LEFT, padx=(8, 0))
 
+        # 协议类型指示
+        self._proto_type_var = tk.StringVar(value='')
+        ttk.Label(info_frame, textvariable=self._proto_type_var, font=('', 8)).pack(side=tk.RIGHT, padx=(4, 0))
+
         table_frame = ttk.Frame(mid_frame)
         table_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 4))
 
-        columns = ('name', 'hex', 'bytes', 'type', 'desc')
-        self.treeview = ttk.Treeview(table_frame, columns=columns, show='headings', selectmode='browse', height=6)
-        self.treeview.heading('name', text='字段名')
-        self.treeview.heading('hex', text='Hex值')
-        self.treeview.heading('bytes', text='字节数')
-        self.treeview.heading('type', text='类型')
-        self.treeview.heading('desc', text='含义')
-        self.treeview.column('name', width=100, minwidth=60)
-        self.treeview.column('hex', width=100, minwidth=60)
-        self.treeview.column('bytes', width=60, minwidth=40, anchor=tk.CENTER)
-        self.treeview.column('type', width=70, minwidth=50, anchor=tk.CENTER)
-        self.treeview.column('desc', width=150, minwidth=60)
+        self._json_columns = ('key', 'jtype', 'required', 'default', 'enum', 'desc')
+        self._hex_columns = ('name', 'hex', 'bytes', 'type', 'desc')
+        self.treeview = ttk.Treeview(table_frame, columns=self._hex_columns, show='headings', selectmode='browse', height=6)
+        self._setup_hex_columns()
+        self._hex_shown = True
 
         tv_scroll = ttk.Scrollbar(table_frame, orient=tk.VERTICAL, command=self.treeview.yview)
         self.treeview.configure(yscrollcommand=tv_scroll.set)
@@ -760,9 +896,13 @@ class ProtocolEditor(ttk.LabelFrame):
         gen_frame.pack(fill=tk.X)
 
         self._data_var = tk.StringVar(value='')
-        data_entry = ttk.Entry(gen_frame, textvariable=self._data_var,
-                               font=('Courier New', 11), state='readonly')
-        data_entry.pack(fill=tk.X, pady=(0, 4))
+        self._data_entry = ttk.Entry(gen_frame, textvariable=self._data_var,
+                                     font=('Courier New', 11), state='readonly')
+        self._data_entry.pack(fill=tk.X, pady=(0, 4))
+        ToolTip(self._data_entry, '')
+        self._data_entry._tooltip_text = ''
+        self._data_var.trace_add('write', self._on_data_var_change)
+        self._on_data_var_change()
 
         btn_row2 = ttk.Frame(gen_frame)
         btn_row2.pack(fill=tk.X)
@@ -775,6 +915,21 @@ class ProtocolEditor(ttk.LabelFrame):
         _refresh_btn = ttk.Button(btn_row2, text='🔄', command=self._refresh_data, width=3)
         _refresh_btn.pack(side=tk.LEFT, padx=1)
         ToolTip(_refresh_btn, '刷新数据')
+
+        # JSON 专用按钮
+        self._json_btn_frame = ttk.Frame(btn_row2)
+        self._json_btn_frame.pack(side=tk.LEFT, padx=(4, 0))
+        _fmt_btn = ttk.Button(self._json_btn_frame, text='格式化', command=self._json_format, width=6)
+        _fmt_btn.pack(side=tk.LEFT, padx=1)
+        ToolTip(_fmt_btn, 'JSON 格式化')
+        _cmp_btn = ttk.Button(self._json_btn_frame, text='压缩', command=self._json_compress, width=5)
+        _cmp_btn.pack(side=tk.LEFT, padx=1)
+        ToolTip(_cmp_btn, 'JSON 压缩')
+        _val_btn = ttk.Button(self._json_btn_frame, text='验证', command=self._json_validate, width=5)
+        _val_btn.pack(side=tk.LEFT, padx=1)
+        ToolTip(_val_btn, '验证 JSON')
+        self._json_btn_frame.pack_forget()
+
         _save_btn = ttk.Button(btn_row2, text='💾', command=self._save_as_template, width=3)
         _save_btn.pack(side=tk.RIGHT, padx=1)
         ToolTip(_save_btn, '保存为模板')
@@ -782,11 +937,59 @@ class ProtocolEditor(ttk.LabelFrame):
         _load_btn.pack(side=tk.RIGHT, padx=1)
         ToolTip(_load_btn, '加载到解析器')
 
+    def _setup_hex_columns(self):
+        self.treeview.configure(columns=self._hex_columns)
+        self.treeview.heading('name', text='字段名')
+        self.treeview.heading('hex', text='Hex值')
+        self.treeview.heading('bytes', text='字节数')
+        self.treeview.heading('type', text='类型')
+        self.treeview.heading('desc', text='含义')
+        self.treeview.column('name', width=100, minwidth=60)
+        self.treeview.column('hex', width=100, minwidth=60)
+        self.treeview.column('bytes', width=60, minwidth=40, anchor=tk.CENTER)
+        self.treeview.column('type', width=70, minwidth=50, anchor=tk.CENTER)
+        self.treeview.column('desc', width=150, minwidth=60)
+        for c in self._json_columns:
+            if c not in self._hex_columns:
+                try:
+                    self.treeview.column(c, width=0, minwidth=0, stretch=False)
+                except:
+                    pass
+
+    def _setup_json_columns(self):
+        self.treeview.configure(columns=self._json_columns)
+        self.treeview.heading('key', text='键路径')
+        self.treeview.heading('jtype', text='类型')
+        self.treeview.heading('required', text='必填')
+        self.treeview.heading('default', text='默认值')
+        self.treeview.heading('enum', text='枚举/约束')
+        self.treeview.heading('desc', text='描述')
+        self.treeview.column('key', width=120, minwidth=80)
+        self.treeview.column('jtype', width=70, minwidth=50, anchor=tk.CENTER)
+        self.treeview.column('required', width=40, minwidth=30, anchor=tk.CENTER)
+        self.treeview.column('default', width=80, minwidth=50)
+        self.treeview.column('enum', width=120, minwidth=60)
+        self.treeview.column('desc', width=120, minwidth=60)
+        for c in self._hex_columns:
+            if c not in self._json_columns:
+                try:
+                    self.treeview.column(c, width=0, minwidth=0, stretch=False)
+                except:
+                    pass
+
     def _load_presets(self):
         for protocol, commands in PRESET_TEMPLATES.items():
-            proto_id = self.tree.insert('', tk.END, text=f'📦 {protocol}',
+            is_json = any(
+                isinstance(cmd_info, dict) and cmd_info.get('type') == 'json'
+                for cmd_info in commands.values()
+            )
+            prefix = '[J] ' if is_json else '[H] '
+            proto_id = self.tree.insert('', tk.END, text=f'📦 {prefix}{protocol}',
                                         values=('预设',), open=False)
             for cmd_name, cmd_info in commands.items():
+                cmd_type = ''
+                if isinstance(cmd_info, dict):
+                    cmd_type = cmd_info.get('type', '')
                 self.tree.insert(proto_id, tk.END, text=f'  {cmd_name}',
                                  values=(cmd_info.get('desc', ''),))
         if self._custom_templates:
@@ -797,11 +1000,53 @@ class ProtocolEditor(ttk.LabelFrame):
             if self.tree.item(item, 'text').startswith('📁'):
                 self.tree.delete(item)
         for protocol, commands in self._custom_templates.items():
-            proto_id = self.tree.insert('', tk.END, text=f'📁 {protocol}',
+            is_json = commands.get('_proto_type') == 'json' or any(
+                isinstance(cmd_info, dict) and cmd_info.get('type') == 'json'
+                for cmd_info in commands.values()
+            )
+            prefix = '[J] ' if is_json else '[H] '
+            proto_id = self.tree.insert('', tk.END, text=f'📁 {prefix}{protocol}',
                                         values=('自定义',), open=True)
             for cmd_name, cmd_info in commands.items():
+                if cmd_name == '_proto_type':
+                    continue
                 self.tree.insert(proto_id, tk.END, text=f'  {cmd_name}',
-                                 values=(cmd_info.get('desc', ''),))
+                                 values=(cmd_info.get('desc'),))
+
+    def _get_proto_type(self, protocol, command=None):
+        if protocol in PRESET_TEMPLATES:
+            if command and command in PRESET_TEMPLATES[protocol]:
+                cmd_info = PRESET_TEMPLATES[protocol][command]
+                if isinstance(cmd_info, dict):
+                    return cmd_info.get('type', 'hex')
+            else:
+                for cmd_name, cmd_info in PRESET_TEMPLATES[protocol].items():
+                    if isinstance(cmd_info, dict) and cmd_info.get('type') == 'json':
+                        return 'json'
+                return 'hex'
+        if protocol in self._custom_templates:
+            if command and command in self._custom_templates[protocol]:
+                cmd_info = self._custom_templates[protocol][command]
+                if isinstance(cmd_info, dict):
+                    return cmd_info.get('type', 'hex')
+            else:
+                for cmd_name, cmd_info in self._custom_templates[protocol].items():
+                    if isinstance(cmd_info, dict) and cmd_info.get('type') == 'json':
+                        return 'json'
+                return 'hex'
+        return 'hex'
+
+    def _save_current_fields(self):
+        if not self._fields:
+            return
+        current_info = self._info_var.get()
+        if '→' not in current_info:
+            return
+        parts = current_info.split('→')
+        proto_name = parts[0].strip()
+        cmd_name = parts[1].strip()
+        if proto_name in self._custom_templates and cmd_name in self._custom_templates[proto_name]:
+            self._custom_templates[proto_name][cmd_name]['fields'] = copy.deepcopy(self._fields)
 
     def _on_tree_select(self, event):
         selected = self.tree.selection()
@@ -814,7 +1059,13 @@ class ProtocolEditor(ttk.LabelFrame):
 
         proto_text = self.tree.item(parent, 'text').strip()
         protocol = proto_text.replace('📦 ', '').replace('📁 ', '')
+        for pfx in ['[H] ', '[J] ']:
+            if protocol.startswith(pfx):
+                protocol = protocol[len(pfx):]
+                break
         command = self.tree.item(item, 'text').strip()
+
+        self._save_current_fields()
 
         cmd_info = None
         if protocol in PRESET_TEMPLATES:
@@ -831,6 +1082,23 @@ class ProtocolEditor(ttk.LabelFrame):
         if cmd_info:
             self._info_var.set(f'{protocol} → {command}')
             self._desc_var.set(cmd_info.get('desc', ''))
+
+            proto_type = cmd_info.get('type', 'hex') if isinstance(cmd_info, dict) else 'hex'
+            self._current_proto_type = proto_type
+
+            if proto_type == 'json':
+                self._proto_type_var.set('[JSON]')
+                self._setup_json_columns()
+                self._hex_shown = False
+                if hasattr(self, '_json_btn_frame'):
+                    self._json_btn_frame.pack(in_=self._json_btn_frame.master, side=tk.LEFT, padx=(4, 0))
+            else:
+                self._proto_type_var.set('[HEX]')
+                self._setup_hex_columns()
+                self._hex_shown = True
+                if hasattr(self, '_json_btn_frame'):
+                    self._json_btn_frame.pack_forget()
+
             self._fields = copy.deepcopy(cmd_info.get('fields', []))
             self._refresh_fields()
             self._refresh_data()
@@ -839,20 +1107,41 @@ class ProtocolEditor(ttk.LabelFrame):
         for item in self.treeview.get_children():
             self.treeview.delete(item)
 
-        computed = self._compute_auto_fields()
-        for i, f in enumerate(self._fields):
-            ft = f.get('field_type', '')
-            if ft in ('长度', '校验'):
-                real = computed.get(i, '')
-                hex_display = f'(自动) {real}' if real else '(自动)'
-            else:
-                hex_display = f.get('hex_value', '')
-            self.treeview.insert('', tk.END, iid=str(i),
-                               values=(f.get('name', ''),
-                                      hex_display,
-                                      f.get('byte_count', 1),
-                                      ft,
-                                      f.get('description', '')))
+        if self._current_proto_type == 'json':
+            for i, f in enumerate(self._fields):
+                key = f.get('key', '')
+                ftype = f.get('type', 'string')
+                required = '是' if f.get('required') else '否'
+                default = str(f.get('default', '')) if f.get('default') is not None else ''
+                enum_vals = f.get('enum', [])
+                constraints = []
+                if enum_vals:
+                    constraints.append(f'enum:{len(enum_vals)}')
+                if f.get('minimum') is not None:
+                    constraints.append(f'min:{f["minimum"]}')
+                if f.get('maximum') is not None:
+                    constraints.append(f'max:{f["maximum"]}')
+                if f.get('pattern'):
+                    constraints.append('regex')
+                enum_str = ', '.join(constraints) if constraints else ''
+                desc = f.get('description', '')
+                self.treeview.insert('', tk.END, iid=str(i),
+                                    values=(key, ftype, required, default, enum_str, desc))
+        else:
+            computed = self._compute_auto_fields()
+            for i, f in enumerate(self._fields):
+                ft = f.get('field_type', '')
+                if ft in ('长度', '校验'):
+                    real = computed.get(i, '')
+                    hex_display = f'(自动) {real}' if real else '(自动)'
+                else:
+                    hex_display = f.get('hex_value', '')
+                self.treeview.insert('', tk.END, iid=str(i),
+                                   values=(f.get('name', ''),
+                                          hex_display,
+                                          f.get('byte_count', 1),
+                                          ft,
+                                          f.get('description', '')))
 
     def _compute_auto_fields(self) -> dict:
         result = {}
@@ -930,7 +1219,32 @@ class ProtocolEditor(ttk.LabelFrame):
 
         return result
 
+    def _on_data_var_change(self, *args):
+        text = self._data_var.get().strip()
+        if hasattr(self, '_data_entry'):
+            self._data_entry._tooltip_text = text if text else ''
+
     def _refresh_data(self):
+        if self._current_proto_type == 'json':
+            self._refresh_json_data()
+        else:
+            self._refresh_hex_data()
+
+    def _refresh_json_data(self):
+        data = {}
+        for f in self._fields:
+            key = f.get('key', '')
+            if not key:
+                continue
+            default = f.get('default', '')
+            data[key] = default
+        if data:
+            json_str = json.dumps(data, ensure_ascii=False, indent=2)
+            self._data_var.set(json_str)
+        else:
+            self._data_var.set('')
+
+    def _refresh_hex_data(self):
         computed = self._compute_auto_fields()
         parts = []
         for i, f in enumerate(self._fields):
@@ -950,6 +1264,37 @@ class ProtocolEditor(ttk.LabelFrame):
         else:
             self._data_var.set('')
 
+    def _json_format(self):
+        raw = self._data_var.get().strip()
+        if not raw:
+            return
+        try:
+            data = json.loads(raw)
+            self._data_var.set(json.dumps(data, ensure_ascii=False, indent=2))
+        except json.JSONDecodeError as e:
+            self._msgbox('格式化失败', f'无效的 JSON:\n{e}')
+
+    def _json_compress(self):
+        raw = self._data_var.get().strip()
+        if not raw:
+            return
+        try:
+            data = json.loads(raw)
+            self._data_var.set(json.dumps(data, ensure_ascii=False, separators=(',', ':')))
+        except json.JSONDecodeError as e:
+            self._msgbox('压缩失败', f'无效的 JSON:\n{e}')
+
+    def _json_validate(self):
+        raw = self._data_var.get().strip()
+        if not raw:
+            self._msgbox('验证', '请输入 JSON 数据')
+            return
+        try:
+            json.loads(raw)
+            self._msgbox('验证', '✅ JSON 格式正确')
+        except json.JSONDecodeError as e:
+            self._msgbox('验证失败', str(e), 'error')
+
     def _send_data(self):
         data_str = self._data_var.get().strip()
         if not data_str:
@@ -959,7 +1304,10 @@ class ProtocolEditor(ttk.LabelFrame):
             self._msgbox('提示', '未设置发送回调', 'warning')
             return
         try:
-            data = bytes.fromhex(data_str.replace(' ', ''))
+            if self._current_proto_type == 'json':
+                data = data_str.encode('utf-8')
+            else:
+                data = bytes.fromhex(data_str.replace(' ', ''))
             self._on_send(data)
             if self._log_panel:
                 self._log_panel.log_info(f'[协议编辑器] 已发送: {data_str}')
@@ -988,13 +1336,21 @@ class ProtocolEditor(ttk.LabelFrame):
     def _add_field(self):
         if not self._check_command_selected():
             return
-        field_names = [f.get('name', '') for f in self._fields]
-        dlg = FieldEditDialog(self.winfo_toplevel(), title='添加字段', field_names=field_names)
-        if dlg.result:
-            self._push_undo()
-            self._fields.append(dlg.result)
-            self._refresh_fields()
-            self._refresh_data()
+        if self._current_proto_type == 'json':
+            dlg = JsonFieldEditDialog(self.winfo_toplevel(), title='添加JSON字段')
+            if dlg.result:
+                self._push_undo()
+                self._fields.append(dlg.result)
+                self._refresh_fields()
+                self._refresh_data()
+        else:
+            field_names = [f.get('name', '') for f in self._fields]
+            dlg = FieldEditDialog(self.winfo_toplevel(), title='添加字段', field_names=field_names)
+            if dlg.result:
+                self._push_undo()
+                self._fields.append(dlg.result)
+                self._refresh_fields()
+                self._refresh_data()
 
     def _edit_field(self):
         if not self._check_command_selected():
@@ -1004,13 +1360,21 @@ class ProtocolEditor(ttk.LabelFrame):
             self._msgbox('提示', '请先在字段列表中选择一个字段', "warning")
             return
         idx = int(sel[0])
-        field_names = [f.get('name', '') for f in self._fields]
-        dlg = FieldEditDialog(self.winfo_toplevel(), title='编辑字段', field=self._fields[idx], field_names=field_names)
-        if dlg.result:
-            self._push_undo()
-            self._fields[idx] = dlg.result
-            self._refresh_fields()
-            self._refresh_data()
+        if self._current_proto_type == 'json':
+            dlg = JsonFieldEditDialog(self.winfo_toplevel(), title='编辑JSON字段', field=self._fields[idx])
+            if dlg.result:
+                self._push_undo()
+                self._fields[idx] = dlg.result
+                self._refresh_fields()
+                self._refresh_data()
+        else:
+            field_names = [f.get('name', '') for f in self._fields]
+            dlg = FieldEditDialog(self.winfo_toplevel(), title='编辑字段', field=self._fields[idx], field_names=field_names)
+            if dlg.result:
+                self._push_undo()
+                self._fields[idx] = dlg.result
+                self._refresh_fields()
+                self._refresh_data()
 
     def _delete_field(self):
         if not self._check_command_selected():
@@ -1099,6 +1463,8 @@ class ProtocolEditor(ttk.LabelFrame):
         desc_var = tk.StringVar(value='')
         ttk.Entry(frame, textvariable=desc_var, width=25).pack(fill=tk.X, pady=(0, 12))
 
+        proto_type = self._current_proto_type
+
         def _confirm():
             proto = proto_var.get().strip()
             name = name_var.get().strip()
@@ -1107,10 +1473,14 @@ class ProtocolEditor(ttk.LabelFrame):
                 return
             if proto not in self._custom_templates:
                 self._custom_templates[proto] = {}
-            self._custom_templates[proto][name] = {
+            record = {
                 'fields': copy.deepcopy(self._fields),
                 'desc': desc_var.get().strip(),
             }
+            if proto_type == 'json':
+                record['type'] = 'json'
+                record['example'] = self._data_var.get().strip()
+            self._custom_templates[proto][name] = record
             self._refresh_custom_tree()
             if self._log_panel:
                 self._log_panel.log_info(f'[协议编辑器] 已保存模板: {proto} → {name}')
@@ -1126,7 +1496,7 @@ class ProtocolEditor(ttk.LabelFrame):
         dialog.title('新建协议')
         dialog.transient(self)
         dialog.grab_set()
-        self._center_toplevel(dialog, 350, 150)
+        self._center_toplevel(dialog, 350, 200)
 
         frame = ttk.Frame(dialog, padding=12)
         frame.pack(fill=tk.BOTH, expand=True)
@@ -1134,8 +1504,17 @@ class ProtocolEditor(ttk.LabelFrame):
         ttk.Label(frame, text='协议名称:').pack(anchor=tk.W)
         name_var = tk.StringVar()
         entry = ttk.Entry(frame, textvariable=name_var, width=25)
-        entry.pack(fill=tk.X, pady=(4, 12))
+        entry.pack(fill=tk.X, pady=(4, 8))
         entry.focus_set()
+
+        ttk.Label(frame, text='协议类型:').pack(anchor=tk.W)
+        type_var = tk.StringVar(value='hex')
+        type_frame = ttk.Frame(frame)
+        type_frame.pack(fill=tk.X, pady=(0, 8))
+        ttk.Radiobutton(type_frame, text='HEX 协议', variable=type_var,
+                        value='hex').pack(side=tk.LEFT, padx=(0, 12))
+        ttk.Radiobutton(type_frame, text='JSON 协议', variable=type_var,
+                        value='json').pack(side=tk.LEFT)
 
         def _confirm():
             name = name_var.get().strip()
@@ -1145,10 +1524,11 @@ class ProtocolEditor(ttk.LabelFrame):
             if name in self._custom_templates:
                 self._msgbox('提示', '协议名称已存在', "warning")
                 return
-            self._custom_templates[name] = {}
+            proto_type = type_var.get()
+            self._custom_templates[name] = {'_proto_type': proto_type}
             self._refresh_custom_tree()
             if self._log_panel:
-                self._log_panel.log_info(f'[协议编辑器] 新建协议: {name}')
+                self._log_panel.log_info(f'[协议编辑器] 新建协议: {name} (type={proto_type})')
             dialog.destroy()
 
         btn_frame = ttk.Frame(frame)
@@ -1161,10 +1541,29 @@ class ProtocolEditor(ttk.LabelFrame):
             self._msgbox('提示', '请先新建协议', "warning")
             return
 
+        self._save_current_fields()
+
         protocols = list(self._custom_templates.keys())
         if not protocols:
             self._msgbox('提示', '请先新建协议', "warning")
             return
+
+        default_proto = protocols[0]
+        selected = self.tree.selection()
+        if selected:
+            item = selected[0]
+            parent = self.tree.parent(item)
+            if not parent:
+                proto_text = self.tree.item(item, 'text').strip()
+            else:
+                proto_text = self.tree.item(parent, 'text').strip()
+            raw = proto_text.replace('📦 ', '').replace('📁 ', '')
+            for pfx in ['[H] ', '[J] ']:
+                if raw.startswith(pfx):
+                    raw = raw[len(pfx):]
+                    break
+            if raw in self._custom_templates:
+                default_proto = raw
 
         dialog = tk.Toplevel(self)
         dialog.title('新建命令')
@@ -1176,7 +1575,7 @@ class ProtocolEditor(ttk.LabelFrame):
         frame.pack(fill=tk.BOTH, expand=True)
 
         ttk.Label(frame, text='所属协议:').pack(anchor=tk.W)
-        proto_var = tk.StringVar(value=protocols[0])
+        proto_var = tk.StringVar(value=default_proto)
         ttk.Combobox(frame, textvariable=proto_var, values=protocols,
                      state='readonly', width=20).pack(fill=tk.X, pady=(4, 8))
 
@@ -1196,10 +1595,21 @@ class ProtocolEditor(ttk.LabelFrame):
                 return
             if proto not in self._custom_templates:
                 self._custom_templates[proto] = {}
-            self._custom_templates[proto][name] = {
+            # 从协议标记或已有命令推断协议类型
+            proto_data = self._custom_templates[proto]
+            proto_type = proto_data.get('_proto_type', 'hex')
+            if proto_type == 'hex':
+                for cmd_info in proto_data.values():
+                    if isinstance(cmd_info, dict) and cmd_info.get('type') == 'json':
+                        proto_type = 'json'
+                        break
+            record = {
                 'fields': [],
                 'desc': desc_var.get().strip(),
             }
+            if proto_type == 'json':
+                record['type'] = 'json'
+            self._custom_templates[proto][name] = record
             self._refresh_custom_tree()
             if self._log_panel:
                 self._log_panel.log_info(f'[协议编辑器] 新建命令: {proto} → {name}')
@@ -1220,6 +1630,10 @@ class ProtocolEditor(ttk.LabelFrame):
 
         if not parent:
             protocol = text.replace('📦 ', '').replace('📁 ', '')
+            for pfx in ['[H] ', '[J] ']:
+                if protocol.startswith(pfx):
+                    protocol = protocol[len(pfx):]
+                    break
             if protocol in PRESET_TEMPLATES:
                 self._msgbox('提示', '预设模板不能删除', "warning")
                 return
@@ -1230,6 +1644,10 @@ class ProtocolEditor(ttk.LabelFrame):
         else:
             proto_text = self.tree.item(parent, 'text').strip()
             protocol = proto_text.replace('📦 ', '').replace('📁 ', '')
+            for pfx in ['[H] ', '[J] ']:
+                if protocol.startswith(pfx):
+                    protocol = protocol[len(pfx):]
+                    break
             command = text
             if protocol in PRESET_TEMPLATES:
                 self._msgbox('提示', '预设模板不能删除', "warning")
@@ -1255,9 +1673,9 @@ class ProtocolEditor(ttk.LabelFrame):
                         self._custom_templates[protocol] = {}
                     self._custom_templates[protocol].update(commands)
                 self._refresh_custom_tree()
-                self._msgbox('成功', f'已导入 {len(data, "info")} 个协议')
+                self._msgbox('成功', f'已导入协议', 'info')
         except Exception as e:
-            self._msgbox('导入失败', str(e, "error"))
+            self._msgbox('导入失败', str(e), 'error')
 
     def _export_templates(self):
         if not self._custom_templates:
@@ -1275,6 +1693,10 @@ class ProtocolEditor(ttk.LabelFrame):
             else:
                 proto_text = self.tree.item(item, 'text').strip()
                 default_name = proto_text.replace('📦 ', '').replace('📁 ', '')
+            for pfx in ['[H] ', '[J] ']:
+                if default_name.startswith(pfx):
+                    default_name = default_name[len(pfx):]
+                    break
 
         if not default_name:
             default_name = '协议模板'
@@ -1292,14 +1714,13 @@ class ProtocolEditor(ttk.LabelFrame):
                 json.dump(self._custom_templates, f, ensure_ascii=False, indent=2)
             self._msgbox('成功', f'已导出到: {filepath}', "info")
         except Exception as e:
-            self._msgbox('导出失败', str(e, "error"))
+            self._msgbox('导出失败', str(e), 'error')
 
     def _load_to_parser(self, target=None):
         if not self._fields:
             self._msgbox('提示', '没有字段可加载', "warning")
             return
         data_str = self._data_var.get().strip()
-        # 获取当前选中的协议和命令名称
         proto_name = ''
         cmd_name = ''
         selected = self.tree.selection()
@@ -1309,19 +1730,26 @@ class ProtocolEditor(ttk.LabelFrame):
             if parent:
                 proto_text = self.tree.item(parent, 'text').strip()
                 proto_name = proto_text.replace('📦 ', '').replace('📁 ', '')
+                for pfx in ['[H] ', '[J] ']:
+                    if proto_name.startswith(pfx):
+                        proto_name = proto_name[len(pfx):]
+                        break
                 cmd_name = self.tree.item(item, 'text').strip()
 
         parse_panel = target or self._parse_panel
         if parse_panel:
-            parse_panel.add_protocol(self._fields, proto_name, cmd_name)
-            if data_str:
-                parse_panel.set_input_data(data_str)
-                parse_panel.do_parse()
-                if self._log_panel:
-                    self._log_panel.log_info(f'[协议编辑器] 已加载 {len(self._fields)} 个字段并自动解析数据')
+            # JSON 类型：直接传递 example 字符串
+            if self._current_proto_type == 'json':
+                parse_panel.add_json_protocol(
+                    self._fields, data_str, proto_name, cmd_name
+                )
             else:
-                if self._log_panel:
-                    self._log_panel.log_info(f'[协议编辑器] 已加载 {len(self._fields)} 个字段到解析面板')
+                parse_panel.add_protocol(self._fields, proto_name, cmd_name)
+                if data_str:
+                    parse_panel.set_input_data(data_str)
+                    parse_panel.do_parse()
+            if self._log_panel:
+                self._log_panel.log_info(f'[协议编辑器] 已加载 {len(self._fields)} 个字段到解析面板')
         else:
             if data_str:
                 self.clipboard_clear()
@@ -1332,11 +1760,9 @@ class ProtocolEditor(ttk.LabelFrame):
                 self._msgbox('提示', '请先生成数据', "info")
 
     def get_current_fields(self) -> list:
-        """获取当前编辑的字段列表（供外部调用）"""
         return self._fields
 
     def get_current_selection(self) -> tuple:
-        """获取当前选中的协议和命令名称（供外部调用）"""
         proto_name = ''
         cmd_name = ''
         selected = self.tree.selection()
@@ -1346,17 +1772,19 @@ class ProtocolEditor(ttk.LabelFrame):
             if parent:
                 proto_text = self.tree.item(parent, 'text').strip()
                 proto_name = proto_text.replace('📦 ', '').replace('📁 ', '')
+                for pfx in ['[H] ', '[J] ']:
+                    if proto_name.startswith(pfx):
+                        proto_name = proto_name[len(pfx):]
+                        break
                 cmd_name = self.tree.item(item, 'text').strip()
         return proto_name, cmd_name
 
     def get_settings(self) -> dict:
-        """获取自定义模板设置"""
         return {
             'custom_templates': self._custom_templates,
         }
 
     def load_settings(self, settings: dict):
-        """加载自定义模板设置"""
         if not settings:
             return
         custom = settings.get('custom_templates', {})

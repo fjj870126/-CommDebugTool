@@ -31,7 +31,7 @@ from ui.ascii_table import AsciiTable
 from ui.encoding_panel import EncodingPanel
 from ui.bitwise_panel import BitwisePanel
 from ui.auto_reply_panel import AutoReplyPanel
-from ui.json_viewer import JsonViewer
+
 
 
 class ToolsContainer(ttk.Frame):
@@ -63,7 +63,7 @@ class ToolsContainer(ttk.Frame):
         'ASCII': 'ascii_table',
         '位操作': 'bitwise_panel',
         '备注': 'annotation_panel',
-        'JSON查看器': 'json_viewer',
+
         '隧道': 'tunnel_panel',
         '心跳': 'heartbeat_panel',
         '导出': 'export_panel',
@@ -110,7 +110,7 @@ class ToolsContainer(ttk.Frame):
             'ascii_table': lambda: AsciiTable(self),
             'bitwise_panel': lambda: BitwisePanel(self),
             'annotation_panel': lambda: AnnotationPanel(self, log_panel=log_panel),
-            'json_viewer': lambda: JsonViewer(self, log_panel=log_panel),
+
             'tunnel_panel': lambda: TunnelPanel(self, log_panel=log_panel),
             'heartbeat_panel': lambda: HeartbeatPanel(self, on_send=on_send),
             'export_panel': lambda: ExportPanel(self, log_panel=log_panel),
@@ -194,8 +194,11 @@ class ToolsContainer(ttk.Frame):
         if parse_panel and hasattr(parse_panel, 'get_settings'):
             settings['parse'] = parse_panel.get_settings()
 
+        protocol_editor = self._get_or_create('protocol_editor')
+        if protocol_editor and hasattr(protocol_editor, 'get_settings'):
+            settings['protocol_editor'] = protocol_editor.get_settings()
+
         mapping = {
-            'protocol_editor': 'protocol_editor',
             'replay': 'replay_panel',
             'waveform': 'waveform_panel',
             'compare': 'compare_panel',
@@ -247,8 +250,14 @@ class ToolsContainer(ttk.Frame):
             if alert_panel and hasattr(alert_panel, 'load_settings'):
                 alert_panel.load_settings(alert_settings)
 
+        # 协议编辑器需要预创建以加载自定义模板
+        proto_editor_settings = settings.get('protocol_editor')
+        if proto_editor_settings:
+            proto_editor = self._get_or_create('protocol_editor')
+            if proto_editor and hasattr(proto_editor, 'load_settings'):
+                proto_editor.load_settings(proto_editor_settings)
+
         mapping = {
-            'protocol_editor': 'protocol_editor',
             'replay': 'replay_panel',
             'waveform': 'waveform_panel',
             'compare': 'compare_panel',

@@ -8,6 +8,7 @@ from .grms_query import GRMS_QUERY_TEMPLATES
 from .grms_data import GRMS_DATA_TEMPLATES
 from .grms_cert import GRMS_CERT_TEMPLATES
 from .grms_room import GRMS_ROOM_TEMPLATES
+from .json_examples import JSON_TEMPLATES
 
 
 # 合并所有预设协议模板
@@ -24,3 +25,6 @@ PRESET_TEMPLATES['GRMS'].update(GRMS_QUERY_TEMPLATES)
 PRESET_TEMPLATES['GRMS'].update(GRMS_DATA_TEMPLATES)
 PRESET_TEMPLATES['GRMS'].update(GRMS_CERT_TEMPLATES)
 PRESET_TEMPLATES['GRMS'].update(GRMS_ROOM_TEMPLATES)
+
+# JSON 协议
+PRESET_TEMPLATES.update(JSON_TEMPLATES)

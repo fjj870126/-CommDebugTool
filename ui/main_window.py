@@ -581,7 +581,7 @@ class MainWindow:
             
             # 数据统计
             self.tools_container.stats_panel.record_rx(data)
-            
+
             # 检查条件告警
             self.tools_container.alert_panel.check_data(data)
             
@@ -608,7 +608,7 @@ class MainWindow:
 
             # 记录到数据回放
             self.tools_container.replay_panel.record_data(data, 'RX')
-            
+
             # 检查条件告警
             self.tools_container.alert_panel.check_data(data)
             
@@ -742,6 +742,7 @@ class MainWindow:
         if sent_any:
             self.tools_container.replay_panel.record_data(data, 'TX')
             self.tools_container.recorder_panel.record_send(data)
+
             # 更新通信面板的发送计数
             for proto in self._connected_protocols:
                 if self._connected_protocols[proto]:
