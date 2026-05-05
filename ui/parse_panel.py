@@ -839,12 +839,14 @@ class ParsePanel(ttk.LabelFrame):
         return {
             'protocols': protocols_data,
             'auto_parse': self._auto_parse_var.get(),
+            'parse_mode': self._mode_var.get(),
         }
 
     def load_settings(self, settings: dict):
         if not settings:
             return
         auto_parse = settings.get('auto_parse', False)
+        parse_mode = settings.get('parse_mode', '自动')
         protocols_data = settings.get('protocols', [])
         if protocols_data:
             self._protocols.clear()
@@ -857,5 +859,6 @@ class ParsePanel(ttk.LabelFrame):
                 entry.enabled = p.get('enabled', True)
                 self._protocols.append(entry)
             self._refresh_proto_list()
+        self._mode_var.set(parse_mode)
         if auto_parse:
             self._auto_parse_var.set(True)

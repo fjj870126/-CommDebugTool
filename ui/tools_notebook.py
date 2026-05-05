@@ -31,6 +31,7 @@ from ui.ascii_table import AsciiTable
 from ui.encoding_panel import EncodingPanel
 from ui.bitwise_panel import BitwisePanel
 from ui.auto_reply_panel import AutoReplyPanel
+from ui.json_viewer import JsonViewer
 
 
 class ToolsContainer(ttk.Frame):
@@ -62,6 +63,7 @@ class ToolsContainer(ttk.Frame):
         'ASCII': 'ascii_table',
         '位操作': 'bitwise_panel',
         '备注': 'annotation_panel',
+        'JSON查看器': 'json_viewer',
         '隧道': 'tunnel_panel',
         '心跳': 'heartbeat_panel',
         '导出': 'export_panel',
@@ -108,6 +110,7 @@ class ToolsContainer(ttk.Frame):
             'ascii_table': lambda: AsciiTable(self),
             'bitwise_panel': lambda: BitwisePanel(self),
             'annotation_panel': lambda: AnnotationPanel(self, log_panel=log_panel),
+            'json_viewer': lambda: JsonViewer(self, log_panel=log_panel),
             'tunnel_panel': lambda: TunnelPanel(self, log_panel=log_panel),
             'heartbeat_panel': lambda: HeartbeatPanel(self, on_send=on_send),
             'export_panel': lambda: ExportPanel(self, log_panel=log_panel),

@@ -1,6 +1,6 @@
 {
   "comm": {
-    "protocol": "TCP服务端",
+    "protocol": "TCP客户端",
     "ip": "192.168.2.113",
     "port": "8081",
     "local_port": "0",
@@ -11,7 +11,7 @@
     "stopbits": "1"
   },
   "tools": {
-    "_current_panel": "导出",
+    "_current_panel": "格式化",
     "send": {
       "mode": "ascii",
       "input": "11 22 33 44",
@@ -572,16 +572,29 @@
       ],
       "auto_parse": true
     },
+    "protocol_editor": {
+      "custom_templates": {}
+    },
+    "replay": {
+      "replay_mode": "选中回放",
+      "replay_interval": "200"
+    },
     "export": {
       "range": "全部日志",
       "format": "TXT",
       "include_time": true,
       "include_raw": true
+    },
+    "formatter": {
+      "format": "自动检测"
+    },
+    "recorder": {
+      "records": []
     }
   },
   "connections": [
     {
-      "key": "192.168.2.113:8081",
+      "key": "TCP客户端 192.168.2.113:8081",
       "addr": "192.168.2.113:8081",
       "tx": 0,
       "rx": 0,
@@ -589,26 +602,9 @@
       "clients": {},
       "switches": {},
       "config": {
-        "protocol": "TCP服务端",
+        "protocol": "TCP客户端",
         "host": "192.168.2.113",
         "port": 8081
-      }
-    },
-    {
-      "key": "串口 /dev/cu.HUAWEIFreeClip2",
-      "addr": "/dev/cu.HUAWEIFreeClip2 115200",
-      "tx": 0,
-      "rx": 0,
-      "status": "已断开",
-      "clients": {},
-      "switches": {},
-      "config": {
-        "protocol": "串口",
-        "port": "/dev/cu.HUAWEIFreeClip2",
-        "baudrate": 115200,
-        "bytesize": 8,
-        "parity": "N",
-        "stopbits": 1
       }
     }
   ],

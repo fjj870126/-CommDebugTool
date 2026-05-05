@@ -10051,7 +10051,6 @@ imports:
  &#8226;   <a href="#importlib">importlib</a>
  &#8226;   <a href="#importlib._bootstrap">importlib._bootstrap</a>
  &#8226;   <a href="#importlib._bootstrap_external">importlib._bootstrap_external</a>
- &#8226;   <a href="#importlib.machinery">importlib.machinery</a>
  &#8226;   <a href="#sys">sys</a>
  &#8226;   <a href="#warnings">warnings</a>
 
@@ -10189,8 +10188,7 @@ imports:
   </div>
   <div class="import">
 imported by:
-    <a href="#importlib">importlib</a>
- &#8226;   <a href="#importlib.abc">importlib.abc</a>
+    <a href="#importlib.abc">importlib.abc</a>
  &#8226;   <a href="#inspect">inspect</a>
  &#8226;   <a href="#pkgutil">pkgutil</a>
  &#8226;   <a href="#py_compile">py_compile</a>
@@ -10830,6 +10828,7 @@ imported by:
  &#8226;   <a href="#json.scanner">json.scanner</a>
  &#8226;   <a href="#packet.packet_builder">packet.packet_builder</a>
  &#8226;   <a href="#ui.formatter_panel">ui.formatter_panel</a>
+ &#8226;   <a href="#ui.json_viewer">ui.json_viewer</a>
  &#8226;   <a href="#ui.main_window">ui.main_window</a>
  &#8226;   <a href="#ui.mqtt_panel">ui.mqtt_panel</a>
  &#8226;   <a href="#ui.parse_panel">ui.parse_panel</a>
@@ -17658,6 +17657,7 @@ imported by:
  &#8226;   <a href="#protocols.grms_query">protocols.grms_query</a>
  &#8226;   <a href="#protocols.grms_room">protocols.grms_room</a>
  &#8226;   <a href="#protocols.grms_time">protocols.grms_time</a>
+ &#8226;   <a href="#protocols.json_examples">protocols.json_examples</a>
  &#8226;   <a href="#protocols.modbus_rtu">protocols.modbus_rtu</a>
  &#8226;   <a href="#protocols.modbus_tcp">protocols.modbus_tcp</a>
  &#8226;   <a href="#ui.parse_panel">ui.parse_panel</a>
@@ -17774,6 +17774,22 @@ imports:
   <div class="import">
 imported by:
     <a href="#protocols">protocols</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="protocols.json_examples"></a>
+  <a target="code" href="/Users/fengjingjing/Desktop/CommDebugTool/protocols/json_examples.py" type="text/plain"><tt>protocols.json_examples</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#protocols">protocols</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#ui.json_viewer">ui.json_viewer</a>
 
   </div>
 
@@ -22477,6 +22493,7 @@ imported by:
  &#8226;   <a href="#ui.file_send_panel">ui.file_send_panel</a>
  &#8226;   <a href="#ui.formatter_panel">ui.formatter_panel</a>
  &#8226;   <a href="#ui.heartbeat_panel">ui.heartbeat_panel</a>
+ &#8226;   <a href="#ui.json_viewer">ui.json_viewer</a>
  &#8226;   <a href="#ui.log_panel">ui.log_panel</a>
  &#8226;   <a href="#ui.main_window">ui.main_window</a>
  &#8226;   <a href="#ui.mqtt_panel">ui.mqtt_panel</a>
@@ -22650,6 +22667,7 @@ imported by:
  &#8226;   <a href="#ui.export_panel">ui.export_panel</a>
  &#8226;   <a href="#ui.file_send_panel">ui.file_send_panel</a>
  &#8226;   <a href="#ui.formatter_panel">ui.formatter_panel</a>
+ &#8226;   <a href="#ui.json_viewer">ui.json_viewer</a>
  &#8226;   <a href="#ui.log_panel">ui.log_panel</a>
  &#8226;   <a href="#ui.main_window">ui.main_window</a>
  &#8226;   <a href="#ui.parse_panel">ui.parse_panel</a>
@@ -22716,6 +22734,7 @@ imported by:
  &#8226;   <a href="#ui.file_send_panel">ui.file_send_panel</a>
  &#8226;   <a href="#ui.formatter_panel">ui.formatter_panel</a>
  &#8226;   <a href="#ui.heartbeat_panel">ui.heartbeat_panel</a>
+ &#8226;   <a href="#ui.json_viewer">ui.json_viewer</a>
  &#8226;   <a href="#ui.log_panel">ui.log_panel</a>
  &#8226;   <a href="#ui.main_window">ui.main_window</a>
  &#8226;   <a href="#ui.mqtt_panel">ui.mqtt_panel</a>
@@ -23083,6 +23102,7 @@ imported by:
  &#8226;   <a href="#ui.formatter_panel">ui.formatter_panel</a>
  &#8226;   <a href="#ui.heartbeat_panel">ui.heartbeat_panel</a>
  &#8226;   <a href="#ui.icon">ui.icon</a>
+ &#8226;   <a href="#ui.json_viewer">ui.json_viewer</a>
  &#8226;   <a href="#ui.log_panel">ui.log_panel</a>
  &#8226;   <a href="#ui.main_window">ui.main_window</a>
  &#8226;   <a href="#ui.mqtt_panel">ui.mqtt_panel</a>
@@ -23458,6 +23478,27 @@ imports:
   <div class="import">
 imported by:
     <a href="#ui.main_window">ui.main_window</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="ui.json_viewer"></a>
+  <a target="code" href="/Users/fengjingjing/Desktop/CommDebugTool/ui/json_viewer.py" type="text/plain"><tt>ui.json_viewer</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#json">json</a>
+ &#8226;   <a href="#protocols.json_examples">protocols.json_examples</a>
+ &#8226;   <a href="#tkinter">tkinter</a>
+ &#8226;   <a href="#tkinter.messagebox">tkinter.messagebox</a>
+ &#8226;   <a href="#tkinter.ttk">tkinter.ttk</a>
+ &#8226;   <a href="#ui">ui</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#ui.tools_notebook">ui.tools_notebook</a>
 
   </div>
 
@@ -23981,6 +24022,7 @@ imports:
  &#8226;   <a href="#ui.file_send_panel">ui.file_send_panel</a>
  &#8226;   <a href="#ui.formatter_panel">ui.formatter_panel</a>
  &#8226;   <a href="#ui.heartbeat_panel">ui.heartbeat_panel</a>
+ &#8226;   <a href="#ui.json_viewer">ui.json_viewer</a>
  &#8226;   <a href="#ui.parse_panel">ui.parse_panel</a>
  &#8226;   <a href="#ui.protocol_editor">ui.protocol_editor</a>
  &#8226;   <a href="#ui.random_generator">ui.random_generator</a>
