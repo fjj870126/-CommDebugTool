@@ -270,8 +270,8 @@ h1 {{ color: #569cd6; }}
         # 注册中文字体
         import platform as _plat
         if _plat.system() == 'Darwin':
-            cn_font = '/System/Library/Fonts/PingFang.ttc'
-            cn_font_bold = '/System/Library/Fonts/PingFang.ttc'
+            cn_font = '/Library/Fonts/Arial Unicode.ttf'
+            cn_font_bold = '/Library/Fonts/Arial Unicode.ttf'
         elif _plat.system() == 'Windows':
             cn_font = 'C:/Windows/Fonts/simsun.ttc'
             cn_font_bold = 'C:/Windows/Fonts/simhei.ttf'
