@@ -855,6 +855,7 @@ class MainWindow:
 
     def _save_project(self):
         """保存工程文件"""
+        from utils.version import APP_VERSION
         from tkinter import filedialog
         file_path = filedialog.asksaveasfilename(
             title='保存工程',
