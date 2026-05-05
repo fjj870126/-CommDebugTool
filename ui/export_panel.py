@@ -63,11 +63,13 @@ class ExportPanel(ttk.LabelFrame):
         
         # 选择保存路径
         fmt = self.format_var.get().lower()
+        ext_map = {'excel': 'xlsx', 'pdf': 'pdf', 'txt': 'txt', 'csv': 'csv', 'html': 'html'}
+        ext = ext_map.get(fmt, fmt)
         file_path = filedialog.asksaveasfilename(
             title='导出日志',
-            defaultextension=f'.{fmt}',
+            defaultextension=f'.{ext}',
             filetypes=[
-                (f'{fmt.upper()} 文件', f'*.{fmt}'),
+                (f'{fmt.upper()} 文件', f'*.{ext}'),
                 ('所有文件', '*.*'),
             ])
         if not file_path:
@@ -262,6 +264,28 @@ h1 {{ color: #569cd6; }}
         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
         from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable
         from reportlab.lib.colors import HexColor
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.ttfonts import TTFont
+
+        # 注册中文字体
+        import platform as _plat
+        if _plat.system() == 'Darwin':
+            cn_font = '/System/Library/Fonts/PingFang.ttc'
+            cn_font_bold = '/System/Library/Fonts/PingFang.ttc'
+        elif _plat.system() == 'Windows':
+            cn_font = 'C:/Windows/Fonts/simsun.ttc'
+            cn_font_bold = 'C:/Windows/Fonts/simhei.ttf'
+        else:
+            cn_font = '/usr/share/fonts/truetype/wqy/wqy-microhei.ttc'
+            cn_font_bold = cn_font
+        try:
+            pdfmetrics.registerFont(TTFont('CFFont', cn_font))
+            pdfmetrics.registerFont(TTFont('CFFont-Bold', cn_font_bold))
+            font_name = 'CFFont'
+            font_bold = 'CFFont-Bold'
+        except Exception:
+            font_name = 'Helvetica'
+            font_bold = 'Helvetica-Bold'
 
         doc = SimpleDocTemplate(file_path, pagesize=A4,
                                 topMargin=20*mm, bottomMargin=20*mm)
@@ -269,10 +293,10 @@ h1 {{ color: #569cd6; }}
 
         title_style = ParagraphStyle('Title', parent=styles['Heading1'],
                                      fontSize=16, textColor=HexColor('#1E90FF'),
-                                     spaceAfter=10)
+                                     spaceAfter=10, fontName=font_bold)
         normal_style = ParagraphStyle('Log', parent=styles['Code'],
                                       fontSize=8, leading=12,
-                                      spaceAfter=2)
+                                      spaceAfter=2, fontName=font_name)
 
         elements = []
         elements.append(Paragraph(
