@@ -11,6 +11,7 @@ __pycache__/
 
 # PyInstaller
 *.manifest
+*.spec
 *.spec.bak
 
 # OS
