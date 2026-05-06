@@ -26,6 +26,27 @@ def bytes_to_hex_ascii(data: bytes) -> str:
     return f'{hex_part}  |  {ascii_part}'
 
 
+def format_hex_input(s: str) -> str:
+    """格式化 HEX 输入：去除非HEX字符，每两位加空格，转大写"""
+    # 移除所有非HEX字符
+    clean = ''.join(c for c in s if c.isalnum())
+    clean = ''.join(c for c in clean if c.upper() in '0123456789ABCDEF')
+    # 每两位加空格
+    result = ' '.join(clean[i:i+2] for i in range(0, len(clean), 2))
+    return result.upper()
+
+def hex_to_all(data: bytes) -> dict:
+    """将 HEX 数据转为 ASCII / Decimal / Binary 预览"""
+    if not data:
+        return {}
+    return {
+        'hex': bytes_to_hex_str(data),
+        'ascii': bytes_to_ascii_str(data),
+        'decimal': ' '.join(str(b) for b in data),
+        'binary': ' '.join(f'{b:08b}' for b in data),
+        'len': len(data),
+    }
+
 def is_valid_hex(s: str) -> bool:
     """检查字符串是否为合法的hex值"""
     s = s.replace(' ', '')

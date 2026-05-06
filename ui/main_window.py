@@ -72,6 +72,7 @@ class MainWindow:
             'config.json')
 
         self._settings_dialog = SettingsDialog(self.root, main_window=self)
+        self._backup_config()
         self._load_settings()
         self._build_ui()
         self._apply_ttk_theme_from_settings()
@@ -79,6 +80,9 @@ class MainWindow:
         self.root.after_idle(self._load_config)
         self.root.after_idle(self._setup_callbacks)
         self.root.after_idle(self._setup_shortcuts)
+        # Ctrl+P 直接绑定（不延迟），确保可用
+        self.root.bind('<Control-p>', lambda e: self._show_panel_search())
+        self.root.bind('<Command-p>', lambda e: self._show_panel_search())
         self.root.after_idle(lambda: StatusBus.register(self._on_status_update))
         # 菜单栏创建后延迟检查更新
         self.root.after(3000, lambda: self.root.after_idle(self._auto_check_update))
@@ -144,6 +148,65 @@ class MainWindow:
         # 菜单栏延迟到窗口显示后创建
         self.root.after_idle(self._build_menubar)
 
+    def _backup_config(self):
+        """启动时备份 config.json，防止配置损坏丢失"""
+        if not os.path.exists(self._config_path):
+            return
+        try:
+            bak = self._config_path + '.bak.' + time.strftime('%Y%m%d')
+            if not os.path.exists(bak):
+                with open(self._config_path, 'r') as f:
+                    data = f.read()
+                with open(bak, 'w') as f:
+                    f.write(data)
+        except Exception:
+            pass
+
+    def _reset_all(self):
+        """一键全局重置：断开所有连接、清空日志、重置统计"""
+        from tkinter import messagebox as mb
+        if not mb.askyesno('确认重置', '将断开所有连接、清空日志并重置统计，确定？', parent=self.root):
+            return
+        self._disconnect_all()
+        self.log_panel.clear()
+        # 重置所有连接统计
+        for info in self.comm_panel._connections.values():
+            info['tx'] = 0
+            info['rx'] = 0
+        self.comm_panel._refresh_conn_tree()
+        self._peak_tx_rate = 0
+        self._peak_rx_rate = 0
+        self.log_panel.log_info('已全局重置')
+
+    _recent_projects = []
+
+    def _add_recent_project(self, path):
+        """记录最近打开的工程文件"""
+        projects = [p for p in self._recent_projects if p != path]
+        projects.insert(0, path)
+        self._recent_projects = projects[:10]
+
+    def _update_recent_menu(self, menu):
+        """更新最近工程菜单项"""
+        # 删除旧的最近工程项（从末尾往前找分隔符后的项）
+        while True:
+            last = menu.index(tk.END)
+            if last is None or last < 0:
+                break
+            label = menu.entrycget(last, 'label')
+            if label.startswith('📂 最近'):
+                menu.delete(last)
+            else:
+                break
+        menu.add_separator()
+        if self._recent_projects:
+            menu.add_command(label='📂 最近工程', state=tk.DISABLED)
+            for p in self._recent_projects[:5]:
+                name = os.path.basename(p)
+                menu.add_command(label=f'   {name}', command=lambda path=p: self._load_project_file(path))
+        else:
+            menu.add_command(label='📂 最近工程', state=tk.DISABLED)
+
     def _build_menubar(self):
         """创建菜单栏（延迟执行以加速窗口显示）"""
         menubar = tk.Menu(self.root)
@@ -159,6 +222,13 @@ class MainWindow:
         layout_menu.add_command(label='保存当前布局...', command=self._save_layout_preset)
         layout_menu.add_command(label='加载布局...', command=self._load_layout_preset)
         file_menu.add_cascade(label='布局预设', menu=layout_menu)
+        file_menu.add_separator()
+        file_menu.add_separator()
+        file_menu.add_command(label='一键全局重置', command=self._reset_all)
+        file_menu.add_separator()
+        # 最近工程（动态更新，在 _load_config 中填充）
+        self._recent_menu = tk.Menu(file_menu, tearoff=0)
+        file_menu.add_cascade(label='最近工程', menu=self._recent_menu)
         file_menu.add_separator()
         file_menu.add_command(label='退出', command=self._on_close, accelerator='Ctrl+Q')
 
@@ -176,6 +246,9 @@ class MainWindow:
         menubar.add_cascade(label='帮助', menu=help_menu)
         help_menu.add_command(label='检查更新', command=self._check_update)
         help_menu.add_command(label='关于', command=self._show_about)
+
+        # 更新最近工程菜单
+        self._update_recent_menu(self._recent_menu)
 
     def _set_initial_sash(self, paned, ratio=None, vertical=False):
         """设置初始分割位置，带越界保护"""
@@ -402,6 +475,7 @@ class MainWindow:
         """快捷键发送 - 从工具集中的快捷发送面板获取数据发送"""
         if self._current_comm or any(self._connected_protocols.values()):
             self.tools_container.send_panel._do_send()
+
 
     def _focus_log(self):
         """聚焦到日志面板"""
@@ -901,6 +975,7 @@ class MainWindow:
                 'left_sash_ratio': left_sash_ratio,
                 'mqtt': mqtt_settings,
                 'update': self._get_update_config(),
+                'recent_projects': self._recent_projects,
             }
             with open(self._config_path, 'w', encoding='utf-8') as f:
                 json.dump(config, f, ensure_ascii=False, indent=2)
@@ -1043,9 +1118,131 @@ class MainWindow:
             if current_panel:
                 self.root.after(300, lambda: self.tools_container.switch_to_panel(current_panel))
 
+            self._apply_project_data(project)
+            self._add_recent_project(file_path)
+            self._update_recent_menu(self._recent_menu)
             self.log_panel.log_info(f'工程已加载: {os.path.basename(file_path)}')
         except Exception as e:
             messagebox.showerror('加载失败', f'工程数据加载失败: {e}')
+
+    def _load_project_file(self, file_path):
+        """按路径加载工程文件（供最近工程菜单调用）"""
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                project = json.load(f)
+        except Exception as e:
+            from tkinter import messagebox
+            messagebox.showerror('加载失败', f'文件读取失败: {e}', parent=self.root)
+            return
+        self._apply_project_data(project)
+        self._add_recent_project(file_path)
+        self._update_recent_menu(self._recent_menu)
+
+    def _apply_project_data(self, project):
+        """应用工程数据（加载项目到当前会话）"""
+        try:
+            self.comm_panel._connections.clear()
+            self.tools_container._panels.clear()
+            self._connected_protocols.clear()
+
+            comm_settings = project.get('comm', {})
+            if comm_settings:
+                self.comm_panel.load_settings(comm_settings)
+
+            connections = project.get('connections', [])
+            if connections:
+                self.comm_panel.load_connections_save_data(connections)
+
+            tools = project.get('tools', {})
+            if tools:
+                self.tools_container.load_settings(tools)
+
+            shortcuts = project.get('shortcuts', [])
+            if shortcuts:
+                self.tools_container.get_send_panel().load_shortcuts_data(shortcuts)
+
+            settings = project.get('settings', {})
+            if settings:
+                self._settings_dialog = SettingsDialog(self.root, settings=settings)
+                self.apply_settings(settings)
+
+            win = project.get('window', {})
+            if win.get('width') and win.get('height'):
+                self.root.geometry(f'{win["width"]}x{win["height"]}')
+
+            sash_ratio = project.get('sash_ratio')
+            if sash_ratio is not None:
+                self.root.after(300, lambda sr=sash_ratio: self._set_initial_sash(self._main_paned, sr))
+                self.root.after(800, lambda sr=sash_ratio: self._set_initial_sash(self._main_paned, sr))
+            left_sash_ratio = project.get('left_sash_ratio')
+            if left_sash_ratio is not None:
+                self.root.after(300, lambda sr=left_sash_ratio: self._set_initial_sash(self._left_paned, sr, vertical=True))
+                self.root.after(800, lambda sr=left_sash_ratio: self._set_initial_sash(self._left_paned, sr, vertical=True))
+
+            favorites = project.get('favorites', [])
+            if favorites:
+                self.tree_nav.set_favorites(favorites)
+
+            current_panel = project.get('current_panel')
+            if current_panel:
+                self.root.after(300, lambda: self.tools_container.switch_to_panel(current_panel))
+        except Exception as e:
+            from tkinter import messagebox
+            messagebox.showerror('加载失败', f'工程数据加载失败: {e}')
+
+    def _show_panel_search(self):
+        """Ctrl+P 面板快速搜索"""
+        from ui.tree_nav import TreeNavPanel
+        panels = []
+        for parent, children in TreeNavPanel.NAV_STRUCTURE:
+            for child in children:
+                panels.append(child)
+
+        dialog = tk.Toplevel(self.root)
+        dialog.title('快速搜索面板')
+        dialog.resizable(False, False)
+        dialog.transient(self.root)
+        dialog.grab_set()
+        pw, ph = self.root.winfo_width(), self.root.winfo_height()
+        px, py = self.root.winfo_rootx(), self.root.winfo_rooty()
+        w, h = 350, 300
+        dialog.geometry(f'{w}x{h}+{px + (pw - w)//2}+{py + (ph - h)//2}')
+
+        ttk.Label(dialog, text='输入面板名称快速跳转：', font=('', 9, 'bold')).pack(pady=(10, 4), padx=10)
+        search_var = tk.StringVar()
+        search_entry = ttk.Entry(dialog, textvariable=search_var, width=30)
+        search_entry.pack(padx=10, fill=tk.X)
+        search_entry.focus_set()
+
+        listbox = tk.Listbox(dialog, height=10)
+        listbox.pack(fill=tk.BOTH, expand=True, padx=10, pady=4)
+        for p in panels:
+            listbox.insert(tk.END, p)
+        listbox.selection_set(0)
+
+        def do_filter(*args):
+            kw = search_var.get().strip().lower()
+            listbox.delete(0, tk.END)
+            for p in panels:
+                if not kw or kw in p.lower():
+                    listbox.insert(tk.END, p)
+            if listbox.size() > 0:
+                listbox.selection_set(0)
+
+        def do_select(*args):
+            sel = listbox.curselection()
+            if not sel:
+                return
+            name = listbox.get(sel[0])
+            self.tree_nav._on_tree_select_by_name(name)
+            dialog.destroy()
+
+        search_var.trace('w', do_filter)
+        listbox.bind('<Double-1>', lambda e: do_select())
+        search_entry.bind('<Return>', lambda e: do_select())
+        search_entry.bind('<Escape>', lambda e: dialog.destroy())
+
+        dialog.protocol('WM_DELETE_WINDOW', dialog.destroy)
 
     def _on_favorites_changed(self, favorites):
         """收藏列表变更时自动保存"""
@@ -1231,6 +1428,12 @@ class MainWindow:
             favorites = config.get('favorites', [])
             if favorites:
                 self.tree_nav.set_favorites(favorites)
+
+            # 恢复最近工程
+            recent = config.get('recent_projects', [])
+            if recent:
+                self._recent_projects = recent[:10]
+                self._update_recent_menu(self._recent_menu)
 
             # 保存 MQTT 配置，供后续打开 MQTT 窗口时使用
             self._mqtt_config = config.get('mqtt')

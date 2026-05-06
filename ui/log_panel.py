@@ -627,6 +627,9 @@ class LogPanel(ttk.LabelFrame):
         self.text.bind('<ButtonRelease-1>', self._on_click_release)
         self.text.bind('<Command-c>', lambda e: self._copy_selection())
         self.text.bind('<Control-c>', lambda e: self._copy_selection())
+        # 悬浮显示 HEX 数据转换（防抖 500ms）
+        self.text.bind('<Motion>', self._on_text_motion)
+        self.text.bind('<Leave>', lambda e: self._hide_hex_tip())
         self.text.bind('<Command-f>', lambda e: self.search_entry.focus_set())
         self.text.bind('<Control-f>', lambda e: self.search_entry.focus_set())
 
@@ -1046,6 +1049,68 @@ class LogPanel(ttk.LabelFrame):
         self._search_matches = []
         self._search_index = -1
         self.search_count_var.set('')
+
+    _hex_hover_timer = None
+    _hex_hover_tip = None
+
+    def _on_text_motion(self, event):
+        """鼠标在日志上移动时检测 HEX 数据，悬停显示转换信息"""
+        try:
+            index = self.text.index(f'@{event.x},{event.y}')
+            if not index:
+                return
+            # 获取当前单词
+            start = self.text.index(f'{index} wordstart')
+            end = self.text.index(f'{index} wordend')
+            word = self.text.get(start, end).strip()
+            # 清理旧定时器
+            if self._hex_hover_timer:
+                self.after_cancel(self._hex_hover_timer)
+                self._hex_hover_timer = None
+            self._hide_hex_tip()
+            if len(word) >= 2 and all(c in '0123456789ABCDEFabcdef ' for c in word):
+                self._hex_hover_timer = self.after(500, lambda w=word, x=event.x_root, y=event.y_root: self._show_hex_tip(w, x, y))
+        except Exception:
+            pass
+
+    def _show_hex_tip(self, word, x, y):
+        """显示 HEX 数据转换提示"""
+        from utils.hex_utils import hex_to_all, hex_str_to_bytes
+        try:
+            clean = word.replace(' ', '')
+            if len(clean) % 2 != 0:
+                clean = '0' + clean
+            data = bytes.fromhex(clean)
+        except Exception:
+            return
+        info = hex_to_all(data)
+        if not info:
+            return
+        text_lines = [
+            f'HEX: {info["hex"]}',
+            f'ASCII: {info["ascii"]}',
+            f'DEC: {info["decimal"]}',
+            f'BIN: {info["binary"]}',
+            f'长度: {info["len"]} 字节',
+        ]
+        tip_text = '\n'.join(text_lines)
+        self._hex_hover_tip = tk.Toplevel(self.text)
+        self._hex_hover_tip.wm_overrideredirect(True)
+        self._hex_hover_tip.wm_geometry(f'+{x + 10}+{y - 10}')
+        theme = get_theme()
+        label = tk.Label(self._hex_hover_tip, text=tip_text, justify=tk.LEFT,
+                         background=theme.color('tooltip_bg'), foreground=theme.color('tooltip_fg'),
+                         relief=tk.SOLID, borderwidth=1, font=('Consolas', 9), padx=6, pady=4)
+        label.pack()
+
+    def _hide_hex_tip(self):
+        """隐藏 HEX 提示"""
+        if self._hex_hover_tip:
+            try:
+                self._hex_hover_tip.destroy()
+            except Exception:
+                pass
+            self._hex_hover_tip = None
 
     def _show_gear_menu(self):
         """显示齿轮菜单"""

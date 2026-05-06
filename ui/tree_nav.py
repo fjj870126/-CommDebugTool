@@ -230,3 +230,14 @@ class TreeNavPanel(ttk.Frame):
                 self._tools_container.switch_to_panel(panel_key)
             desc = self.PANEL_DESCS.get(text, '')
             self._desc_label.configure(text=f'📝 {desc}' if desc else '')
+
+    def _on_tree_select_by_name(self, panel_name: str):
+        """按面板名称选中（供 Ctrl+P 快速搜索调用）"""
+        # 查找面板所在的树节点并选中
+        for item in self._tree.get_children():
+            for child in self._tree.get_children(item):
+                if self._tree.item(child, 'text') == panel_name:
+                    self._tree.selection_set(child)
+                    self._tree.see(child)
+                    self._on_tree_select(None)
+                    return

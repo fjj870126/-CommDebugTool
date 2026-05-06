@@ -26,6 +26,9 @@ class WaveformPanel(ttk.LabelFrame):
 
         self.start_btn = ttk.Button(ctrl_frame, text='▶ 开始', command=self._toggle, width=8)
         self.start_btn.pack(side=tk.LEFT, padx=2)
+        self.pause_btn = ttk.Button(ctrl_frame, text='⏸ 暂停', command=self._toggle_pause,
+                                    width=8, state=tk.DISABLED)
+        self.pause_btn.pack(side=tk.LEFT, padx=2)
 
         ttk.Label(ctrl_frame, text='数据点:').pack(side=tk.LEFT, padx=(8, 2))
         self.points_var = tk.IntVar(value=200)
@@ -68,13 +71,36 @@ class WaveformPanel(ttk.LabelFrame):
         ttk.Label(info_frame, textvariable=self.value_var,
                   foreground=theme.color('tx')).pack(side=tk.RIGHT)
 
+        self.canvas.bind('<MouseWheel>', self._on_zoom)
+
     def _toggle(self):
         if self._running:
             self._running = False
             self.start_btn.configure(text='▶ 开始')
+            self.pause_btn.configure(state=tk.DISABLED)
         else:
             self._running = True
-            self.start_btn.configure(text='⏸ 暂停')
+            self._paused = False
+            self.start_btn.configure(text='■ 停止')
+            self.pause_btn.configure(state=tk.NORMAL, text='⏸ 暂停')
+            self._draw()
+
+    def _toggle_pause(self):
+        if hasattr(self, '_paused') and self._paused:
+            self._paused = False
+            self.pause_btn.configure(text='⏸ 暂停')
+            self._draw()
+        else:
+            self._paused = True
+            self.pause_btn.configure(text='▶ 继续')
+
+    def _on_zoom(self, event):
+        """鼠标滚轮缩放波形（调整显示点数）"""
+        delta = -1 if event.delta > 0 else 1
+        cur = self.points_var.get()
+        new_val = max(50, min(500, cur + delta * 50))
+        self.points_var.set(new_val)
+        if self._data_queue:
             self._draw()
 
     def _on_auto_scale(self):
@@ -92,7 +118,7 @@ class WaveformPanel(ttk.LabelFrame):
         # 取第一个字节作为波形数据点
         for byte in data:
             self._data_queue.append(byte)
-        if self._running:
+        if self._running and not getattr(self, '_paused', False):
             self._draw()
 
     def _draw(self):

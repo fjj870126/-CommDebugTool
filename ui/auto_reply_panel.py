@@ -65,8 +65,13 @@ class AutoReplyPanel(ttk.LabelFrame):
         ttk.Label(r1, text='匹配模式:').pack(side=tk.LEFT)
         self.match_mode_var = tk.StringVar(value='完全匹配')
         ttk.Combobox(r1, textvariable=self.match_mode_var,
-                     values=['完全匹配', '包含匹配', '开头匹配', '结尾匹配'],
-                     state='readonly', width=8).pack(side=tk.LEFT, padx=(4, 0))
+                     values=['完全匹配', '包含匹配', '开头匹配', '结尾匹配', '正则匹配'],
+                     state='readonly', width=10).pack(side=tk.LEFT, padx=(4, 0))
+
+        ttk.Label(r1, text='延迟(ms):').pack(side=tk.LEFT, padx=(8, 2))
+        self.delay_var = tk.StringVar(value='0')
+        ttk.Spinbox(r1, from_=0, to=10000, textvariable=self.delay_var,
+                    width=5).pack(side=tk.LEFT)
 
         r2 = ttk.Frame(edit_frame)
         r2.pack(fill=tk.X, pady=2)
@@ -77,6 +82,7 @@ class AutoReplyPanel(ttk.LabelFrame):
                                      font=('Courier New', 10), width=16)
         self.reply_entry.pack(side=tk.LEFT, padx=(4, 0), fill=tk.X, expand=True)
         add_entry_context_menu(self.reply_entry)
+        ttk.Label(r2, text='{data}=原始数据', foreground='gray', font=('', 8)).pack(side=tk.LEFT, padx=(4, 0))
 
         btn_frame = ttk.Frame(edit_frame)
         btn_frame.pack(fill=tk.X, pady=(4, 0))
@@ -112,7 +118,12 @@ class AutoReplyPanel(ttk.LabelFrame):
             return
 
         mode = self.match_mode_var.get()
-        rule = {'enabled': True, 'match': match_hex, 'reply': reply_hex, 'mode': mode}
+        try:
+            delay = int(self.delay_var.get())
+        except ValueError:
+            delay = 0
+        rule = {'enabled': True, 'match': match_hex, 'reply': reply_hex,
+                'mode': mode, 'delay': delay}
         self._rules.append(rule)
         self.rule_tree.insert('', tk.END, values=('✓', match_hex, reply_hex, mode))
         self.match_var.set('')
@@ -136,17 +147,25 @@ class AutoReplyPanel(ttk.LabelFrame):
                 self.rule_tree.delete(item)
 
     def check_and_reply(self, received_data: bytes) -> bool:
-        """检查接收数据是否匹配任何规则，匹配则自动回复"""
+        """检查接收数据是否匹配任何规则，匹配则自动回复（支持正则、变量替换、延迟）"""
         if not self.enabled_var.get() or not self._rules:
             return False
 
+        import re
         matched = False
+
+        def do_reply(rule, reply_bytes):
+            if self._on_send and reply_bytes:
+                self._on_send(reply_bytes, is_heartbeat=True)
+            if self._log_panel:
+                hex_str = bytes_to_hex_str(reply_bytes)
+                self._log_panel.log_info(f'[批量自动回复] 匹配规则, 已回复: {hex_str}')
+
         for rule in self._rules:
             if not rule['enabled']:
                 continue
             try:
                 match_bytes = hex_str_to_bytes(rule['match'])
-                reply_bytes = hex_str_to_bytes(rule['reply'])
             except Exception:
                 continue
 
@@ -160,14 +179,31 @@ class AutoReplyPanel(ttk.LabelFrame):
                 is_match = received_data.startswith(match_bytes)
             elif mode == '结尾匹配':
                 is_match = received_data.endswith(match_bytes)
+            elif mode == '正则匹配':
+                try:
+                    pattern = re.compile(rule['match'])
+                    is_match = bool(pattern.search(bytes_to_hex_str(received_data)))
+                except re.error:
+                    continue
 
-            if is_match:
-                matched = True
-                if self._on_send and reply_bytes:
-                    self._on_send(reply_bytes, is_heartbeat=True)
-                if self._log_panel:
-                    hex_str = bytes_to_hex_str(reply_bytes)
-                    self._log_panel.log_info(f'[批量自动回复] 匹配规则, 已回复: {hex_str}')
+            if not is_match:
+                continue
+
+            matched = True
+            # 变量替换：{data} → 原始数据的 HEX
+            reply_hex = rule['reply']
+            if '{data}' in reply_hex:
+                reply_hex = reply_hex.replace('{data}', bytes_to_hex_str(received_data))
+            try:
+                reply_bytes = hex_str_to_bytes(reply_hex)
+            except Exception:
+                continue
+
+            delay = rule.get('delay', 0)
+            if delay > 0:
+                self.after(delay, lambda rb=reply_bytes: do_reply(rule, rb))
+            else:
+                do_reply(rule, reply_bytes)
 
         return matched
 
@@ -187,6 +223,7 @@ class AutoReplyPanel(ttk.LabelFrame):
                 'match': rule.get('match', ''),
                 'reply': rule.get('reply', ''),
                 'mode': rule.get('mode', '完全匹配'),
+                'delay': rule.get('delay', 0),
             }
             self._rules.append(r)
             enabled_text = '✓' if r['enabled'] else '✗'
