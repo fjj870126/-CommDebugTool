@@ -135,8 +135,10 @@ class StressTestPanel(ttk.LabelFrame):
         self.rate_label.grid(row=1, column=3, sticky=tk.W, padx=(4, 20), pady=2)
         
         ttk.Label(stats_grid, text='状态:').grid(row=1, column=4, sticky=tk.W, pady=2)
-        self.status_label = ttk.Label(stats_grid, text='就绪', foreground=get_theme().color('gray'))
-        self.status_label.grid(row=1, column=5, sticky=tk.W, padx=(4, 0), pady=2)
+        self.status_dot = ttk.Label(stats_grid, text='●', foreground=get_theme().color('gray'))
+        self.status_dot.grid(row=1, column=5, sticky=tk.W, padx=(4, 0), pady=2)
+        self.status_label = ttk.Label(stats_grid, text='就绪')
+        self.status_label.grid(row=1, column=6, sticky=tk.W, padx=(2, 0), pady=2)
 
     def _on_mode_change(self, event=None):
         """切换数据模式"""
@@ -161,10 +163,12 @@ class StressTestPanel(ttk.LabelFrame):
             hex_data = self.data_var.get().strip()
             if not hex_data:
                 self.status_label.configure(text='⚠️ 请输入发送数据', foreground='red')
+                self.status_dot.configure(foreground='red')
                 return
             data = hex_str_to_bytes(hex_data)
             if not data:
                 self.status_label.configure(text='⚠️ 无效的 Hex 数据', foreground='red')
+                self.status_dot.configure(foreground='red')
                 return
             
             count = int(self.count_var.get())
@@ -172,15 +176,18 @@ class StressTestPanel(ttk.LabelFrame):
             timeout = int(self.timeout_var.get())
         except ValueError:
             self.status_label.configure(text='⚠️ 参数格式错误', foreground='red')
+            self.status_dot.configure(foreground='red')
             return
         
         # 检查连接状态 - 使用静默发送检查
         if self._on_send_silent:
             if not self._on_send_silent(b''):
                 self.status_label.configure(text='⚠️ 未连接', foreground='red')
+                self.status_dot.configure(foreground='red')
                 return
         elif not self._on_send:
             self.status_label.configure(text='⚠️ 未连接', foreground='red')
+            self.status_dot.configure(foreground='red')
             return
         
         # 重置统计
@@ -197,6 +204,7 @@ class StressTestPanel(ttk.LabelFrame):
         self.progress['maximum'] = count
         self.progress['value'] = 0
         self.status_label.configure(text='运行中...', foreground='blue')
+        self.status_dot.configure(foreground='#2196F3')
         StatusBus.send('压力测试', f'发送 {count} 包', 'info')
         
         # 在后台线程中执行
@@ -227,6 +235,7 @@ class StressTestPanel(ttk.LabelFrame):
                         self._stop_flag = True  # 未连接，停止测试
                         self.root().after(0, lambda: self.status_label.configure(
                             text='⚠️ 未连接，测试已停止', foreground='red'))
+                        self.root().after(0, lambda: self.status_dot.configure(foreground='red'))
                         break
                 elif self._on_send:
                     self._on_send(data)
@@ -237,6 +246,7 @@ class StressTestPanel(ttk.LabelFrame):
                     self._stop_flag = True  # 无发送回调，停止测试
                     self.root().after(0, lambda: self.status_label.configure(
                         text='⚠️ 未连接，测试已停止', foreground='red'))
+                    self.root().after(0, lambda: self.status_dot.configure(foreground='red'))
                     break
             except Exception:
                 self._fail_count += 1
@@ -257,6 +267,7 @@ class StressTestPanel(ttk.LabelFrame):
         self.start_btn.configure(state=tk.NORMAL)
         self.stop_btn.configure(state=tk.DISABLED)
         self.status_label.configure(text='完成', foreground='green')
+        self.status_dot.configure(foreground='green')
         StatusBus.send('压力测试',
                        f'完成: 发送 {self._sent_count}, 成功 {self._success_count}, 失败 {self._fail_count}',
                        'success')
@@ -266,6 +277,7 @@ class StressTestPanel(ttk.LabelFrame):
         self._stop_flag = True
         self.stop_btn.configure(state=tk.DISABLED)
         self.status_label.configure(text='停止中...', foreground='orange')
+        self.status_dot.configure(foreground='orange')
         StatusBus.send('压力测试', '正在停止...', 'warning')
 
     def _update_stats(self):
@@ -297,6 +309,7 @@ class StressTestPanel(ttk.LabelFrame):
         self.rate_label.configure(text='0 包/s')
         self.progress['value'] = 0
         self.status_label.configure(text='就绪', foreground=get_theme().color('gray'))
+        self.status_dot.configure(foreground=get_theme().color('gray'))
 
     def destroy(self):
         self._running = False

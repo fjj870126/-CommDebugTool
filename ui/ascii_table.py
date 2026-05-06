@@ -2,6 +2,7 @@
 
 import tkinter as tk
 from tkinter import ttk
+from ui.theme import get_theme
 
 
 class AsciiTable(ttk.LabelFrame):
@@ -132,10 +133,10 @@ class AsciiTable(ttk.LabelFrame):
         show_ext = self.show_ext.get()
 
         # 配置标签
-        self.tree.tag_configure('ctrl', foreground='#888888')
-        self.tree.tag_configure('printable', foreground='#000000')
-        self.tree.tag_configure('ext', foreground='#0066cc')
-        self.tree.tag_configure('highlight', background='#FFFF00')
+        self.tree.tag_configure('ctrl', foreground=get_theme().color('gray'))
+        self.tree.tag_configure('printable', foreground=get_theme().color('fg'))
+        self.tree.tag_configure('ext', foreground=get_theme().color('blue'))
+        self.tree.tag_configure('highlight', background=get_theme().color('search_highlight_bg'))
 
         count = 0
         for data in self._all_data:

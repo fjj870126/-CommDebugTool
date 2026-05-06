@@ -13,6 +13,7 @@ from packet.packet_builder import (
 )
 from packet.checksum import get_algorithm_names, get_algorithm_width
 from utils.context_menu import add_entry_context_menu, add_combobox_context_menu
+from ui.theme import get_theme
 
 
 class _CellTooltip:
@@ -83,7 +84,8 @@ class _CellTooltip:
         except Exception:
             pass
         self.label = tk.Label(self.tip, text=text, justify=tk.LEFT,
-                              background='#FFFFE0', relief=tk.SOLID, borderwidth=1,
+                              background=get_theme().color('tooltip_bg'),
+                              relief=tk.SOLID, borderwidth=1,
                               padx=6, pady=3)
         self.label.pack()
         self.tip.geometry(f'+{x_root + 12}+{y_root + 12}')

@@ -66,17 +66,7 @@ class FloatWindow:
     DEFAULT_WIDTH = 600
     DEFAULT_HEIGHT = 400
 
-    # 暗色主题颜色常量
-    TITLE_BG = '#1a1a2e'
-    TITLE_FG = '#e0e0e0'
-    TITLE_BTN_BG = '#16213e'
-    TITLE_BTN_HOVER = '#0f3460'
-    CLOSE_BTN_BG = '#e74c3c'
-    CLOSE_BTN_HOVER = '#c0392b'
-    TOOLBAR_BG = '#1e1e2e'
-    BORDER_COLOR = '#2a2a4a'
-    SUMMARY_BG = '#1a1a2e'
-    SUMMARY_FG = '#a0a0c0'
+    # 颜色通过主题系统获取，不再硬编码
 
     def __init__(self, log_panel, window_id: int):
         self._log_panel = log_panel
@@ -99,108 +89,95 @@ class FloatWindow:
 
     def _make_title_btn(self, parent, text, command, bg, hover_bg=None, width=2):
         """创建统一样式的标题栏按钮"""
+        theme = get_theme()
         btn = tk.Button(
-            parent, text=text, font=('Segoe UI', 9, 'bold'),
-            bg=bg, fg=self.TITLE_FG, relief=tk.FLAT,
+            parent, text=text, font=theme.font('ui_label_bold'),
+            bg=bg, fg=theme.color('title_fg'), relief=tk.FLAT,
             width=width, cursor='hand2',
             activebackground=hover_bg or bg,
-            activeforeground='#ffffff',
+            activeforeground=theme.color('accent_fg'),
             bd=0, highlightthickness=0,
             command=command,
         )
-        # 悬停效果
         if hover_bg:
             btn.bind('<Enter>', lambda e: btn.configure(bg=hover_bg))
             btn.bind('<Leave>', lambda e: btn.configure(bg=bg))
         return btn
 
     def _build_window(self):
-        """构建浮动窗口 - 现代化暗色风格"""
+        """构建浮动窗口 - 使用主题系统"""
+        theme = get_theme()
         self._window = tk.Toplevel(self._log_panel._root)
         self._window.title(f'收发日志 #{self._window_id}')
         self._window.geometry(f'{self.DEFAULT_WIDTH}x{self.DEFAULT_HEIGHT}')
         self._window.minsize(self.MIN_WIDTH, self.MIN_HEIGHT)
 
-        # 无边框风格
         self._window.overrideredirect(True)
 
-        # ===== 外层边框容器（模拟窗口阴影/边框效果） =====
-        outer_frame = tk.Frame(self._window, bg=self.BORDER_COLOR, bd=1, relief=tk.SOLID)
+        # ===== 外层边框容器 =====
+        outer_frame = tk.Frame(self._window, bg=theme.color('border_color'), bd=1, relief=tk.SOLID)
         outer_frame.pack(fill=tk.BOTH, expand=True)
 
         # ===== 主容器 =====
-        main_frame = tk.Frame(outer_frame, bg=self.TOOLBAR_BG)
+        main_frame = tk.Frame(outer_frame, bg=theme.color('toolbar_bg'))
         main_frame.pack(fill=tk.BOTH, expand=True)
 
-        # ===== 自定义标题栏（可拖拽） =====
-        title_bar = tk.Frame(main_frame, bg=self.TITLE_BG, height=32, cursor='fleur')
+        # ===== 自定义标题栏 =====
+        title_bar = tk.Frame(main_frame, bg=theme.color('title_bg'), height=32, cursor='fleur')
         title_bar.pack(fill=tk.X)
         title_bar.pack_propagate(False)
 
-        # 左侧图标区域
         icon_label = tk.Label(
-            title_bar,
-            text='📋',
-            bg=self.TITLE_BG,
-            fg=self.TITLE_FG,
-            font=('Segoe UI', 11),
+            title_bar, text='📋',
+            bg=theme.color('title_bg'), fg=theme.color('title_fg'),
+            font=theme.font('ui_title'),
         )
         icon_label.pack(side=tk.LEFT, padx=(10, 4))
 
-        # 标题文字
         title_label = tk.Label(
-            title_bar,
-            text=f'收发日志 #{self._window_id}',
-            bg=self.TITLE_BG,
-            fg=self.TITLE_FG,
-            font=('Segoe UI', 10, 'bold'),
-            anchor=tk.W,
+            title_bar, text=f'收发日志 #{self._window_id}',
+            bg=theme.color('title_bg'), fg=theme.color('title_fg'),
+            font=theme.font('ui_bold'), anchor=tk.W,
         )
         title_label.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
-        # 窗口控制按钮
-        btn_frame = tk.Frame(title_bar, bg=self.TITLE_BG)
+        btn_frame = tk.Frame(title_bar, bg=theme.color('title_bg'))
         btn_frame.pack(side=tk.RIGHT, padx=(0, 6))
 
-        # 汇总/详细切换
         self._summary_btn = self._make_title_btn(
             btn_frame, '📊', self._toggle_summary_mode,
-            self.TITLE_BTN_BG, self.TITLE_BTN_HOVER, width=2,
+            theme.color('title_button_bg'), theme.color('title_button_hover_bg'), width=2,
         )
         self._summary_btn.pack(side=tk.LEFT, padx=(0, 3))
 
-        # 最小化
         min_btn = self._make_title_btn(
             btn_frame, '─', self._minimize_window,
-            self.TITLE_BTN_BG, self.TITLE_BTN_HOVER, width=2,
+            theme.color('title_button_bg'), theme.color('title_button_hover_bg'), width=2,
         )
         min_btn.pack(side=tk.LEFT, padx=(0, 3))
 
-        # 关闭
         close_btn = self._make_title_btn(
             btn_frame, '✕', self._close_window,
-            self.CLOSE_BTN_BG, self.CLOSE_BTN_HOVER, width=2,
+            theme.color('close_button_bg'), theme.color('close_button_hover_bg'), width=2,
         )
         close_btn.pack(side=tk.LEFT)
 
-        # 标题栏拖拽绑定
         for widget in (title_bar, icon_label, title_label):
             widget.bind('<ButtonPress-1>', self._on_drag_start)
             widget.bind('<B1-Motion>', self._on_drag_motion)
             widget.bind('<ButtonRelease-1>', self._on_drag_end)
 
         # ===== 分隔线 =====
-        sep = tk.Frame(main_frame, bg=self.BORDER_COLOR, height=1)
+        sep = tk.Frame(main_frame, bg=theme.color('border_color'), height=1)
         sep.pack(fill=tk.X)
 
         # ===== 工具栏 =====
-        toolbar = tk.Frame(main_frame, bg=self.TOOLBAR_BG)
+        toolbar = tk.Frame(main_frame, bg=theme.color('toolbar_bg'))
         toolbar.pack(fill=tk.X, pady=(4, 2), padx=6)
 
-        # 显示模式
         mode_label = tk.Label(
-            toolbar, text='显示:', bg=self.TOOLBAR_BG, fg='#a0a0c0',
-            font=('Segoe UI', 9),
+            toolbar, text='显示:', bg=theme.color('toolbar_bg'),
+            fg=theme.color('toolbar_label_fg'), font=theme.font('ui_sm'),
         )
         mode_label.pack(side=tk.LEFT)
 
@@ -208,41 +185,35 @@ class FloatWindow:
             rb = tk.Radiobutton(
                 toolbar, text=mode, variable=self._display_mode_var,
                 value=mode, command=self._on_mode_change,
-                bg=self.TOOLBAR_BG, fg='#c0c0d0',
-                selectcolor='#0f3460',
-                activebackground=self.TOOLBAR_BG,
-                activeforeground='#ffffff',
-                font=('Segoe UI', 9),
-                relief=tk.FLAT,
-                highlightthickness=0,
+                bg=theme.color('toolbar_bg'), fg=theme.color('toolbar_fg'),
+                selectcolor=theme.color('accent_bg'),
+                activebackground=theme.color('toolbar_bg'),
+                activeforeground=theme.color('accent_fg'),
+                font=theme.font('ui_sm'),
+                relief=tk.FLAT, highlightthickness=0,
             )
             rb.pack(side=tk.LEFT, padx=(2, 2))
 
-        # 分隔线
-        sep1 = tk.Frame(toolbar, bg=self.BORDER_COLOR, width=1)
+        sep1 = tk.Frame(toolbar, bg=theme.color('border_color'), width=1)
         sep1.pack(side=tk.LEFT, fill=tk.Y, padx=6, pady=2)
 
-        # 自动滚动
         self._auto_scroll_cb = tk.Checkbutton(
             toolbar, text='自动滚动', variable=self._auto_scroll_var,
-            bg=self.TOOLBAR_BG, fg='#c0c0d0',
-            selectcolor='#0f3460',
-            activebackground=self.TOOLBAR_BG,
-            activeforeground='#ffffff',
-            font=('Segoe UI', 9),
-            relief=tk.FLAT,
-            highlightthickness=0,
+            bg=theme.color('toolbar_bg'), fg=theme.color('toolbar_fg'),
+            selectcolor=theme.color('accent_bg'),
+            activebackground=theme.color('toolbar_bg'),
+            activeforeground=theme.color('accent_fg'),
+            font=theme.font('ui_sm'),
+            relief=tk.FLAT, highlightthickness=0,
         )
         self._auto_scroll_cb.pack(side=tk.LEFT)
 
-        # 分隔线
-        sep2 = tk.Frame(toolbar, bg=self.BORDER_COLOR, width=1)
+        sep2 = tk.Frame(toolbar, bg=theme.color('border_color'), width=1)
         sep2.pack(side=tk.LEFT, fill=tk.Y, padx=6, pady=2)
 
-        # 日志级别过滤
         level_label = tk.Label(
-            toolbar, text='级别:', bg=self.TOOLBAR_BG, fg='#a0a0c0',
-            font=('Segoe UI', 9),
+            toolbar, text='级别:', bg=theme.color('toolbar_bg'),
+            fg=theme.color('toolbar_label_fg'), font=theme.font('ui_sm'),
         )
         level_label.pack(side=tk.LEFT)
 
@@ -254,58 +225,53 @@ class FloatWindow:
         level_cb.bind('<<ComboboxSelected>>', self._on_level_filter_change)
 
         # 右侧清空按钮
+        btn_bg = theme.color('button_bg')
+        btn_hover_bg = theme.color('button_hover_bg')
         clear_btn = tk.Button(
             toolbar, text='🗑 清空', command=self._clear_window,
-            bg='#2d2d4d', fg='#e0e0e0', relief=tk.FLAT,
-            font=('Segoe UI', 9), cursor='hand2',
-            activebackground='#3d3d5d', activeforeground='#ffffff',
+            bg=btn_bg, fg=theme.color('button_fg'), relief=tk.FLAT,
+            font=theme.font('ui_sm'), cursor='hand2',
+            activebackground=btn_hover_bg, activeforeground=theme.color('accent_fg'),
             bd=0, highlightthickness=0, padx=8, pady=1,
         )
         clear_btn.pack(side=tk.RIGHT, padx=(0, 2))
-        clear_btn.bind('<Enter>', lambda e: clear_btn.configure(bg='#3d3d5d'))
-        clear_btn.bind('<Leave>', lambda e: clear_btn.configure(bg='#2d2d4d'))
+        clear_btn.bind('<Enter>', lambda e, bh=btn_hover_bg: clear_btn.configure(bg=bh))
+        clear_btn.bind('<Leave>', lambda e, bb=btn_bg: clear_btn.configure(bg=bb))
 
         # ===== 汇总统计栏 =====
-        self._summary_frame = tk.Frame(main_frame, bg=self.SUMMARY_BG)
+        self._summary_frame = tk.Frame(main_frame, bg=theme.color('summary_bg'))
         self._summary_label = tk.Label(
-            self._summary_frame, text='', bg=self.SUMMARY_BG,
-            fg=self.SUMMARY_FG, font=('Segoe UI', 9),
+            self._summary_frame, text='', bg=theme.color('summary_bg'),
+            fg=theme.color('summary_fg'), font=theme.font('ui_sm'),
             anchor=tk.W, padx=8, pady=3,
         )
         self._summary_label.pack(fill=tk.X)
 
         # ===== 文本显示区域 =====
-        text_frame = tk.Frame(main_frame, bg=self.TOOLBAR_BG)
+        text_frame = tk.Frame(main_frame, bg=theme.color('toolbar_bg'))
         text_frame.pack(fill=tk.BOTH, expand=True, padx=6, pady=(0, 6))
 
-        theme = get_theme()
         self._text_widget = tk.Text(
             text_frame, wrap=tk.WORD, relief=tk.FLAT, borderwidth=0,
             padx=8, pady=6, state=tk.DISABLED,
-            bg='#12121e', fg='#d0d0e0',
-            insertbackground='#ffffff',
-            selectbackground='#264f78',
-            font=('Courier New', 10),
         )
+        theme.configure_float_window(self._text_widget)
         self._scrollbar = ttk.Scrollbar(text_frame, orient=tk.VERTICAL, command=self._text_widget.yview)
         self._text_widget.configure(yscrollcommand=self._scrollbar.set)
 
         self._text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         self._scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-        # 配置日志标签颜色
-        self._text_widget.tag_configure('tx', foreground='#4fc1ff')
-        self._text_widget.tag_configure('rx', foreground='#6a9955')
-        self._text_widget.tag_configure('info', foreground='#ce9178')
-        self._text_widget.tag_configure('warning', foreground='#e5c07b')
-        self._text_widget.tag_configure('error', foreground='#e74c3c')
+        # 配置日志标签颜色（使用主题系统）
+        theme.configure_tags(self._text_widget)
 
         # 右键菜单
         self._context_menu = tk.Menu(self._text_widget, tearoff=0,
-                                     bg='#1e1e2e', fg='#e0e0e0',
-                                     activebackground='#0f3460',
-                                     activeforeground='#ffffff',
-                                     font=('Segoe UI', 9))
+                                     bg=theme.color('toolbar_bg'),
+                                     fg=theme.color('toolbar_fg'),
+                                     activebackground=theme.color('accent_bg'),
+                                     activeforeground=theme.color('accent_fg'),
+                                     font=theme.font('ui_sm'))
         self._context_menu.add_command(label='复制', command=self._copy_selection)
         self._context_menu.add_command(label='全选', command=self._select_all)
         self._context_menu.add_separator()
@@ -316,13 +282,8 @@ class FloatWindow:
         self._text_widget.bind('<Command-c>', lambda e: self._copy_selection())
         self._text_widget.bind('<Control-c>', lambda e: self._copy_selection())
 
-        # 窗口关闭协议
         self._window.protocol('WM_DELETE_WINDOW', self._close_window)
-
-        # 窗口大小变化监听
         self._window.bind('<Configure>', self._on_window_configure)
-
-        # 初始更新
         self._update_summary()
 
     def _on_drag_start(self, event):
@@ -557,20 +518,17 @@ class LogPanel(ttk.LabelFrame):
         self._build_ui()
 
     def _build_ui(self):
-        # 统一 Combobox 字体大小与第一行一致
-        style = ttk.Style()
-        style.configure('LogPanel.TCombobox', font=('', 9))
-
-        # ========== 工具栏 ==========
+        # ========== 工具栏（单行精简）==========
         toolbar = ttk.Frame(self._inner_container)
         toolbar.pack(fill=tk.X, pady=(0, 2))
 
-        ttk.Label(toolbar, text='显示:', font=tkfont.nametofont('TkCaptionFont'), foreground='#3a3a3a').pack(side=tk.LEFT)
+        ttk.Label(toolbar, text='显示:', font=tkfont.nametofont('TkCaptionFont')).pack(side=tk.LEFT)
         self.mode_var = tk.StringVar(value=DISPLAY_MIX)
-        for mode in [DISPLAY_HEX, DISPLAY_ASCII, DISPLAY_MIX]:
-            ttk.Radiobutton(toolbar, text=mode, variable=self.mode_var,
-                            value=mode, command=self._on_mode_change).pack(
-                side=tk.LEFT, padx=0)
+        mode_cb = ttk.Combobox(toolbar, textvariable=self.mode_var,
+                               values=[DISPLAY_HEX, DISPLAY_ASCII, DISPLAY_MIX],
+                               state='readonly', width=10)
+        mode_cb.pack(side=tk.LEFT, padx=(0, 6))
+        mode_cb.bind('<<ComboboxSelected>>', self._on_mode_change)
 
         ttk.Separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=4)
 
@@ -582,31 +540,33 @@ class LogPanel(ttk.LabelFrame):
         self._new_float_btn = ttk.Button(toolbar, text='➕新窗口', command=self._create_new_float_window, width=8)
         self._new_float_btn.pack(side=tk.LEFT, padx=0)
 
-        self.save_btn = ttk.Button(toolbar, text='💾自动保存:关', command=self._toggle_auto_save, width=12)
-        self.save_btn.pack(side=tk.LEFT, padx=0)
+        # 齿轮菜单按钮
+        self._gear_menu = tk.Menu(toolbar, tearoff=0)
+        self._gear_menu.add_command(label='💾 自动保存：关', command=self._toggle_auto_save)
+        self._gear_menu.add_separator()
+        self._gear_menu.add_command(label='🗑 清空全部', command=self.clear)
 
-        # 清空按钮移到第二行
-        # ttk.Button(toolbar, text='🗑清空', command=self.clear, width=8).pack(side=tk.LEFT, padx=0)
+        gear_btn = ttk.Button(toolbar, text='⚙', width=3, command=self._show_gear_menu)
+        gear_btn.pack(side=tk.LEFT, padx=(2, 0))
 
+        # ========== 搜索栏 ==========
         search_bar = ttk.Frame(self._inner_container)
         search_bar.pack(fill=tk.X, pady=(0, 4))
 
-        ttk.Label(search_bar, text='级别:', font=tkfont.nametofont('TkCaptionFont'), foreground='#3a3a3a').pack(side=tk.LEFT, padx=(0, 2))
+        ttk.Label(search_bar, text='级别:', font=tkfont.nametofont('TkCaptionFont')).pack(side=tk.LEFT, padx=(0, 2))
         self.level_filter_var = tk.StringVar(value=LEVEL_FILTER_ALL)
         self.level_filter_cb = ttk.Combobox(
             search_bar, textvariable=self.level_filter_var,
             values=LEVEL_FILTER_OPTIONS, state='readonly', width=8,
-            style='LogPanel.TCombobox',
         )
         self.level_filter_cb.pack(side=tk.LEFT, padx=(0, 4))
         self.level_filter_cb.bind('<<ComboboxSelected>>', self._on_level_filter_change)
 
-        ttk.Label(search_bar, text='过滤:', font=tkfont.nametofont('TkCaptionFont'), foreground='#3a3a3a').pack(side=tk.LEFT, padx=(0, 2))
+        ttk.Label(search_bar, text='过滤:', font=tkfont.nametofont('TkCaptionFont')).pack(side=tk.LEFT, padx=(0, 2))
         self.filter_var = tk.StringVar(value=FILTER_ALL)
         self.filter_cb = ttk.Combobox(search_bar, textvariable=self.filter_var,
                                       values=[FILTER_ALL, FILTER_TX, FILTER_RX],
-                                      state='readonly', width=8,
-                                      style='LogPanel.TCombobox')
+                                      state='readonly', width=8)
         self.filter_cb.pack(side=tk.LEFT, padx=(0, 4))
         self.filter_cb.bind('<<ComboboxSelected>>', self._on_filter_change)
 
@@ -616,6 +576,16 @@ class LogPanel(ttk.LabelFrame):
         self.search_entry.bind('<Return>', lambda e: self._search_next())
         self.search_entry.bind('<Shift-Return>', lambda e: self._search_prev())
 
+        # 搜索模式切换
+        self._search_regex = False
+        self._search_case = False
+        self._regex_btn = ttk.Button(search_bar, text='.*', command=self._toggle_search_regex,
+                                     width=3, style='Toolbutton')
+        self._regex_btn.pack(side=tk.LEFT, padx=0)
+        self._case_btn = ttk.Button(search_bar, text='Aa', command=self._toggle_search_case,
+                                    width=3, style='Toolbutton')
+        self._case_btn.pack(side=tk.LEFT, padx=0)
+
         ttk.Button(search_bar, text='▲', command=self._search_prev, width=2).pack(side=tk.LEFT, padx=0)
         ttk.Button(search_bar, text='▼', command=self._search_next, width=2).pack(side=tk.LEFT, padx=0)
 
@@ -624,8 +594,6 @@ class LogPanel(ttk.LabelFrame):
                   font=('', 9)).pack(side=tk.LEFT, padx=(2, 0))
 
         ttk.Button(search_bar, text='✕', command=self._search_clear, width=2).pack(side=tk.LEFT, padx=(1, 0))
-
-        ttk.Button(search_bar, text='🗑清空', command=self.clear, width=7).pack(side=tk.LEFT, padx=(2, 0))
 
         # 汇总统计栏
         self._summary_frame = ttk.Frame(self._inner_container)
@@ -721,7 +689,7 @@ class LogPanel(ttk.LabelFrame):
         """格式化日志条目为文本"""
         return f'[{entry.timestamp}] {entry.text}\n'
 
-    def _on_mode_change(self):
+    def _on_mode_change(self, event=None):
         self._display_mode = self.mode_var.get()
         for wid, fw in list(self._float_windows.items()):
             if fw.is_alive():
@@ -951,6 +919,61 @@ class LogPanel(ttk.LabelFrame):
         self.text.tag_add(tk.SEL, '1.0', tk.END)
         self.text.configure(state=tk.DISABLED)
 
+    def _toggle_search_regex(self):
+        """切换正则搜索模式"""
+        self._search_regex = not self._search_regex
+        self._regex_btn.configure(relief=tk.SUNKEN if self._search_regex else tk.RAISED)
+        if self.search_var.get().strip():
+            self._search_clear()
+            self._search_next()
+
+    def _toggle_search_case(self):
+        """切换大小写敏感模式"""
+        self._search_case = not self._search_case
+        self._case_btn.configure(relief=tk.SUNKEN if self._search_case else tk.RAISED)
+        if self.search_var.get().strip():
+            self._search_clear()
+            self._search_next()
+
+    def _find_all_matches(self, content, keyword):
+        """查找所有匹配位置，返回 [(start_index, end_index), ...]"""
+        import re
+        if self._search_regex:
+            try:
+                flags = 0 if self._search_case else re.IGNORECASE
+                pattern = re.compile(keyword, flags)
+                matches = []
+                for m in pattern.finditer(content):
+                    # content 包含全文，需要将字符偏移转为 tkinter 行.列格式
+                    start_line = content[:m.start()].count('\n') + 1
+                    start_col_start = m.start() - content[:m.start()].rfind('\n') - 1
+                    if start_col_start < 0:
+                        start_col_start = m.start()
+                    start_pos = f'{start_line}.{max(0, start_col_start)}'
+                    # 计算结束位置
+                    end_line = content[:m.end()].count('\n') + 1
+                    end_col = m.end() - content[:m.end()].rfind('\n') - 1
+                    if end_col < 0:
+                        end_col = m.end()
+                    end_pos = f'{end_line}.{max(0, end_col)}'
+                    matches.append((start_pos, end_pos))
+                return matches
+            except re.error:
+                self.search_count_var.set('正则错误')
+                return []
+        else:
+            matches = []
+            start = '1.0'
+            nocase = not self._search_case
+            while True:
+                pos = self.text.search(keyword, start, tk.END, nocase=nocase)
+                if not pos:
+                    break
+                end = f'{pos}+{len(keyword)}c'
+                matches.append((pos, end))
+                start = end
+            return matches
+
     def _search_next(self):
         """搜索下一个匹配"""
         keyword = self.search_var.get().strip()
@@ -958,17 +981,8 @@ class LogPanel(ttk.LabelFrame):
             return
 
         self._search_clear_highlights()
-
         content = self.text.get('1.0', tk.END)
-        self._search_matches = []
-        start = '1.0'
-        while True:
-            pos = self.text.search(keyword, start, tk.END, nocase=True)
-            if not pos:
-                break
-            self._search_matches.append(pos)
-            end = f'{pos}+{len(keyword)}c'
-            start = end
+        self._search_matches = self._find_all_matches(content, keyword)
 
         if not self._search_matches:
             self.search_count_var.set('未找到')
@@ -984,17 +998,8 @@ class LogPanel(ttk.LabelFrame):
             return
 
         self._search_clear_highlights()
-
         content = self.text.get('1.0', tk.END)
-        self._search_matches = []
-        start = '1.0'
-        while True:
-            pos = self.text.search(keyword, start, tk.END, nocase=True)
-            if not pos:
-                break
-            self._search_matches.append(pos)
-            end = f'{pos}+{len(keyword)}c'
-            start = end
+        self._search_matches = self._find_all_matches(content, keyword)
 
         if not self._search_matches:
             self.search_count_var.set('未找到')
@@ -1009,17 +1014,21 @@ class LogPanel(ttk.LabelFrame):
         if not keyword or not self._search_matches:
             return
 
+        theme = get_theme()
         self.text.configure(state=tk.NORMAL)
 
-        for i, pos in enumerate(self._search_matches):
-            end = f'{pos}+{len(keyword)}c'
+        for i, (pos, end) in enumerate(self._search_matches):
             if i == self._search_index:
                 self.text.tag_add(self._search_current_tag, pos, end)
-                self.text.tag_config(self._search_current_tag, background='#e74c3c', foreground='#ffffff')
+                self.text.tag_config(self._search_current_tag,
+                                     background=theme.color('search_current_bg'),
+                                     foreground=theme.color('search_current_fg'))
                 self.text.see(pos)
             else:
                 self.text.tag_add(self._search_highlight_tag, pos, end)
-                self.text.tag_config(self._search_highlight_tag, background='#f1c40f', foreground='#000000')
+                self.text.tag_config(self._search_highlight_tag,
+                                     background=theme.color('search_highlight_bg'),
+                                     foreground=theme.color('search_highlight_fg'))
 
         self.text.configure(state=tk.DISABLED)
         self.search_count_var.set(f'{self._search_index + 1}/{len(self._search_matches)}')
@@ -1038,6 +1047,15 @@ class LogPanel(ttk.LabelFrame):
         self._search_index = -1
         self.search_count_var.set('')
 
+    def _show_gear_menu(self):
+        """显示齿轮菜单"""
+        try:
+            self._gear_menu.tk_popup(
+                self._new_float_btn.winfo_rootx(),
+                self._new_float_btn.winfo_rooty() + self._new_float_btn.winfo_height())
+        finally:
+            self._gear_menu.grab_release()
+
     def _toggle_auto_save(self):
         """切换自动保存"""
         if not self._auto_save_enabled:
@@ -1047,10 +1065,10 @@ class LogPanel(ttk.LabelFrame):
             self._auto_save_dir = dir_path
             self._auto_save_file = os.path.join(dir_path, f'comm_log_{datetime.now().strftime("%Y%m%d_%H%M%S")}.txt')
             self._auto_save_enabled = True
-            self.save_btn.configure(text='💾 自动保存:开')
+            self._gear_menu.entryconfigure(0, label='💾 自动保存：开')
         else:
             self._auto_save_enabled = False
-            self.save_btn.configure(text='💾 自动保存:关')
+            self._gear_menu.entryconfigure(0, label='💾 自动保存：关')
 
     def _auto_save(self):
         """自动保存日志"""

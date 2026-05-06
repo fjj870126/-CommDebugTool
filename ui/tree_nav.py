@@ -66,9 +66,11 @@ class TreeNavPanel(ttk.Frame):
         '导出': '导出日志到文件 | TXT/CSV/HTML 格式',
     }
 
-    def __init__(self, parent, on_select=None):
+    def __init__(self, parent, on_select=None, favorites=None, on_favorites_changed=None):
         super().__init__(parent)
         self._on_select = on_select
+        self._favorites = set(favorites or [])
+        self._on_favorites_changed = on_favorites_changed
 
         # ========== 顶部说明区域 ==========
         desc_frame = ttk.Frame(self)
@@ -78,14 +80,12 @@ class TreeNavPanel(ttk.Frame):
             desc_frame,
             text='工具栏',
             font=tkfont.nametofont('TkCaptionFont'),
-            foreground='#3a3a3a',
         ).pack(side=tk.LEFT)
 
         self._desc_label = ttk.Label(
             desc_frame,
             text='',
             font=('', 9),
-            foreground='#333333',
         )
         self._desc_label.pack(side=tk.LEFT, padx=(8, 0))
 
@@ -107,6 +107,7 @@ class TreeNavPanel(ttk.Frame):
 
         self._build_tree()
         self._tree.bind('<<TreeviewSelect>>', self._on_tree_select)
+        self._tree.bind('<Button-3>', self._on_context_menu)
 
         # 右侧：工具面板容器（由外部创建并设置）
         self._content_frame = ttk.Frame(self._paned)
@@ -121,10 +122,97 @@ class TreeNavPanel(ttk.Frame):
         container.pack(in_=self._content_frame, fill=tk.BOTH, expand=True)
 
     def _build_tree(self):
+        # ⭐ 收藏分组（置顶）
+        self._favorites_parent = None
+        if self._favorites:
+            self._favorites_parent = self._tree.insert('', tk.END, text='⭐ 收藏', open=True)
+            for name in sorted(self._favorites, key=str.lower):
+                self._tree.insert(self._favorites_parent, tk.END, text=name)
+
         for parent_name, children in self.NAV_STRUCTURE:
             parent_id = self._tree.insert('', tk.END, text=parent_name, open=True)
             for child_name in children:
                 self._tree.insert(parent_id, tk.END, text=child_name, open=False)
+
+    def _on_context_menu(self, event):
+        """右键菜单：收藏/取消收藏"""
+        item = self._tree.identify_row(event.y)
+        if not item:
+            return
+        self._tree.selection_set(item)
+        text = self._tree.item(item, 'text')
+        if not self._tree.parent(item):
+            return  # 分组标题不可收藏
+
+        is_fav = (self._favorites_parent is not None
+                  and self._tree.parent(item) == self._favorites_parent)
+        menu = tk.Menu(self._tree, tearoff=0)
+        if is_fav:
+            menu.add_command(label='☆ 取消收藏', command=self._toggle_favorite)
+        else:
+            menu.add_command(label='⭐ 收藏', command=self._toggle_favorite)
+        menu.post(event.x_root, event.y_root)
+
+    def _toggle_favorite(self):
+        """切换收藏状态"""
+        sel = self._tree.selection()
+        if not sel:
+            return
+        text = self._tree.item(sel[0], 'text')
+        parent = self._tree.parent(sel[0])
+
+        if self._favorites_parent is not None and parent == self._favorites_parent:
+            self._favorites.discard(text)
+        else:
+            self._favorites.add(text)
+
+        self._rebuild_tree()
+        if self._on_favorites_changed:
+            self._on_favorites_changed(list(self._favorites))
+
+    def _rebuild_tree(self):
+        """重建树（保持当前选中）"""
+        sel = self._tree.selection()
+        selected_text = self._tree.item(sel[0], 'text') if sel else None
+        # 保存展开状态
+        open_groups = set()
+        for item in self._tree.get_children():
+            if self._tree.item(item, 'open'):
+                open_groups.add(self._tree.item(item, 'text'))
+
+        self._tree.delete(*self._tree.get_children())
+        self._build_tree()
+
+        # 恢复展开
+        for item in self._tree.get_children():
+            if self._tree.item(item, 'text') in open_groups:
+                self._tree.item(item, open=True)
+
+        # 恢复选中
+        if selected_text:
+            self._select_item_by_text(selected_text)
+
+    def _select_item_by_text(self, text):
+        """根据文字查找并选中节点"""
+        for item in self._tree.get_children():
+            if self._tree.item(item, 'text') == text and not self._tree.parent(item):
+                # 展开分组查找子项
+                for child in self._tree.get_children(item):
+                    if self._tree.item(child, 'text') == text:
+                        self._tree.selection_set(child)
+                        return
+            # 也可能是顶层收藏项
+            for child in self._tree.get_children(item):
+                if self._tree.item(child, 'text') == text:
+                    self._tree.selection_set(child)
+                    return
+
+    def set_favorites(self, favorites):
+        self._favorites = set(favorites or [])
+        self._rebuild_tree()
+
+    def get_favorites(self):
+        return list(self._favorites)
 
     def _on_tree_select(self, event):
         sel = self._tree.selection()

@@ -53,7 +53,7 @@ CS = {'绿底黑字':{'bg':'#000000','fg':'#00FF00','ic':'#00FF00'},
 
 class TerminalPanel(ttk.LabelFrame):
     def __init__(self, parent, on_send=None):
-        super().__init__(parent, text=' 终端 ', padding=6)
+        super().__init__(parent, text=' 终端 ', padding=8)
         self._on_send = on_send
         self._ansi = True; self._dmode = 'ascii'; self._cs_name = '绿底黑字'
         self._hist = []; self._hi = -1; self._max_history = 100; self._shortcuts = []

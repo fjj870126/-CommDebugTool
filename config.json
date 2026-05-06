@@ -4,14 +4,23 @@
     "ip": "192.168.2.113",
     "port": "8081",
     "local_port": "0",
-    "serial_port": "/dev/cu.usbserial-2110 - USB Serial",
+    "serial_port": "/dev/cu.HUAWEIFreeBudsPro4 - n/a",
     "baudrate": "115200",
     "databits": "8",
     "parity": "N",
-    "stopbits": "1"
+    "stopbits": "1",
+    "column_widths": {
+      "send": 40,
+      "recv": 40,
+      "type": 149,
+      "addr": 166,
+      "status": 153,
+      "tx": 121,
+      "rx": 122
+    }
   },
   "tools": {
-    "_current_panel": "快捷发送",
+    "_current_panel": "协议解析",
     "send": {
       "mode": "ascii",
       "input": "11 22 33 44",
@@ -30,7 +39,8 @@
           "ascii",
           "11 22 33 44"
         ]
-      ]
+      ],
+      "notebook_tab": 0
     },
     "alert": {
       "enabled": true,
@@ -1128,6 +1138,65 @@
         "parity": "N",
         "stopbits": 1
       }
+    },
+    {
+      "key": "TCP客户端 192.168.2.113:8081",
+      "addr": "192.168.2.113:8081",
+      "tx": 0,
+      "rx": 0,
+      "status": "已断开",
+      "clients": {},
+      "switches": {},
+      "config": {
+        "protocol": "TCP客户端",
+        "host": "192.168.2.113",
+        "port": 8081
+      }
+    },
+    {
+      "key": "串口 /dev/cu.HUAWEIFreeBudsPro4",
+      "addr": "/dev/cu.HUAWEIFreeBudsPro4 115200",
+      "tx": 0,
+      "rx": 0,
+      "status": "已断开",
+      "clients": {},
+      "switches": {},
+      "config": {
+        "protocol": "串口",
+        "port": "/dev/cu.HUAWEIFreeBudsPro4",
+        "baudrate": 115200,
+        "bytesize": 8,
+        "parity": "N",
+        "stopbits": 1
+      }
+    },
+    {
+      "key": "WebSocket客户端",
+      "addr": "192.168.2.113:8081",
+      "tx": 0,
+      "rx": 0,
+      "status": "已断开",
+      "clients": {},
+      "switches": {},
+      "config": {
+        "protocol": "WebSocket客户端",
+        "host": "192.168.2.113",
+        "port": 8081
+      }
+    },
+    {
+      "key": "UDP",
+      "addr": "192.168.2.113:8081",
+      "tx": 0,
+      "rx": 0,
+      "status": "已断开",
+      "clients": {},
+      "switches": {},
+      "config": {
+        "protocol": "UDP",
+        "host": "192.168.2.113",
+        "port": 8081
+      }
     }
   ],
   "shortcuts": [],
@@ -1147,12 +1216,13 @@
     "save_log_on_exit": false,
     "status_bar": true
   },
+  "favorites": [],
   "window": {
-    "width": 1712,
-    "height": 1198
+    "width": 1512,
+    "height": 873
   },
-  "sash_ratio": 0.6188235294117647,
-  "left_sash_ratio": 0.39331619537275064,
+  "sash_ratio": 0.5673333333333334,
+  "left_sash_ratio": 0.44418052256532065,
   "mqtt": null,
   "update": {
     "ignored_versions": []

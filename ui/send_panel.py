@@ -6,6 +6,7 @@ import json
 import os
 from utils.hex_utils import hex_str_to_bytes, is_valid_hex
 from utils.context_menu import add_entry_context_menu
+from ui.theme import get_theme
 
 
 class SendPanel(ttk.LabelFrame):
@@ -82,14 +83,16 @@ class SendPanel(ttk.LabelFrame):
         input_section.pack(fill=tk.BOTH, expand=True, pady=(0, 4))
 
         # 左侧行号（固定宽度）
+        theme = get_theme()
         self._line_numbers = tk.Text(input_section, width=4, height=4,
-                                     font=('Consolas', 10), bg='#f5f5f5', fg='#666',
+                                     font=theme.font('monospace'), bg=theme.color('line_no_bg'),
+                                     fg=theme.color('line_no_fg'),
                                      state=tk.DISABLED, padx=2, pady=2,
                                      highlightthickness=0, borderwidth=0)
         self._line_numbers.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 4))
 
         # 中间输入框（压缩高度）
-        self.input_text = tk.Text(input_section, height=4, font=('Consolas', 10),
+        self.input_text = tk.Text(input_section, height=4, font=theme.font('monospace'),
                                   wrap=tk.NONE, undo=True, relief=tk.FLAT, borderwidth=1)
         self.input_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 4))
         self.input_text.bind('<Return>', lambda e: self._on_enter_in_text(e))
@@ -130,8 +133,9 @@ class SendPanel(ttk.LabelFrame):
                    width=6).pack(side=tk.LEFT)
 
         # ========== 中部：折叠面板区域（快捷指令 + 追加数据 + 定时发送）==========
-        panels_nb = ttk.Notebook(self)
-        panels_nb.pack(fill=tk.X, pady=(0, 6))
+        self._panels_nb = ttk.Notebook(self)
+        self._panels_nb.pack(fill=tk.X, pady=(0, 6))
+        panels_nb = self._panels_nb
 
         # --- Tab 1: 快捷指令 ---
         shortcut_tab = ttk.Frame(panels_nb, padding=6)
@@ -141,10 +145,15 @@ class SendPanel(ttk.LabelFrame):
         toolbar = ttk.Frame(shortcut_tab)
         toolbar.pack(fill=tk.X, pady=(0, 4))
         ttk.Button(toolbar, text='+ 添加', command=self._add_shortcut, width=8).pack(side=tk.LEFT, padx=(0, 4))
-        ttk.Button(toolbar, text='管理', command=self._manage_shortcuts, width=8).pack(side=tk.LEFT)
+        ttk.Button(toolbar, text='管理', command=self._manage_shortcuts, width=8).pack(side=tk.LEFT, padx=(0, 4))
+        ttk.Button(toolbar, text='📥 导入', command=self._import_templates, width=8).pack(side=tk.LEFT, padx=(0, 4))
+        ttk.Button(toolbar, text='📤 导出', command=self._export_templates, width=8).pack(side=tk.LEFT, padx=(0, 4))
+        self._shortcut_count = ttk.Label(toolbar, text='0 个模板', font=('', 9), foreground='gray')
+        self._shortcut_count.pack(side=tk.RIGHT, padx=(4, 0))
 
         # 按钮区域（带滚动）
-        self._shortcut_canvas = tk.Canvas(shortcut_tab, highlightthickness=0, height=70, bg='#fafafa')
+        self._shortcut_canvas = tk.Canvas(shortcut_tab, highlightthickness=0, height=70,
+                                           bg=get_theme().color('shortcut_bg'))
         self._shortcut_inner = ttk.Frame(self._shortcut_canvas)
         self._shortcut_scroll = ttk.Scrollbar(shortcut_tab, orient=tk.VERTICAL,
                                                command=self._shortcut_canvas.yview)
@@ -171,14 +180,14 @@ class SendPanel(ttk.LabelFrame):
         ttk.Label(append_grid, text='前缀:').grid(row=0, column=0, sticky=tk.W, padx=(0, 4))
         self.prefix_var = tk.StringVar()
         self.prefix_entry = ttk.Entry(append_grid, textvariable=self.prefix_var,
-                                      font=('Consolas', 10), width=24)
+                                      font=get_theme().font('monospace'), width=24)
         self.prefix_entry.grid(row=0, column=1, sticky=tk.EW, padx=(0, 12))
         add_entry_context_menu(self.prefix_entry)
 
         ttk.Label(append_grid, text='后缀:').grid(row=1, column=0, sticky=tk.W, padx=(0, 4), pady=(4, 0))
         self.suffix_var = tk.StringVar()
         self.suffix_entry = ttk.Entry(append_grid, textvariable=self.suffix_var,
-                                      font=('Consolas', 10), width=24)
+                                      font=get_theme().font('monospace'), width=24)
         self.suffix_entry.grid(row=1, column=1, sticky=tk.EW, pady=(4, 0))
         add_entry_context_menu(self.suffix_entry)
         append_grid.columnconfigure(1, weight=1)
@@ -203,6 +212,9 @@ class SendPanel(ttk.LabelFrame):
         self.line_delay_entry = ttk.Entry(timer_grid, textvariable=self.line_delay_var, width=8)
         self.line_delay_entry.grid(row=0, column=4, sticky=tk.W)
         add_entry_context_menu(self.line_delay_entry)
+
+        self._timer_status = ttk.Label(timer_grid, text='● 已停止', foreground='gray', font=('', 9))
+        self._timer_status.grid(row=0, column=5, sticky=tk.W, padx=(10, 0))
 
         self._timer_id = None
 
@@ -496,11 +508,13 @@ class SendPanel(ttk.LabelFrame):
                 self._timer_id = self.after(interval, _tick)
 
         self._timer_id = self.after(interval, _tick)
+        self._timer_status.configure(text='● 运行中', foreground='#2196F3')
 
     def _stop_timer(self):
         if self._timer_id:
             self.after_cancel(self._timer_id)
             self._timer_id = None
+        self._timer_status.configure(text='● 已停止', foreground='gray')
 
     # ============================================================
     # 快捷指令管理
@@ -510,6 +524,7 @@ class SendPanel(ttk.LabelFrame):
         """刷新快捷指令按钮（自动换行）"""
         for w in self._shortcut_inner.winfo_children():
             w.destroy()
+        self._update_shortcut_count()
         
         if not self._shortcuts:
             ttk.Label(self._shortcut_inner, text='(无快捷指令，点击"添加"创建)',
@@ -531,7 +546,7 @@ class SendPanel(ttk.LabelFrame):
             group_frame.pack(fill=tk.X, pady=(1, 0))
             
             ttk.Label(group_frame, text=f'[{group_name}]',
-                      font=('', 9, 'bold'), foreground='#555').pack(side=tk.LEFT, padx=(0, 4))
+                      font=('', 9, 'bold')).pack(side=tk.LEFT, padx=(0, 4))
             
             for name, mode, text in items:
                 display_text = text[:15] + '...' if len(text) > 15 else text
@@ -539,6 +554,57 @@ class SendPanel(ttk.LabelFrame):
                                  command=lambda m=mode, t=text: self._send_shortcut(m, t),
                                  style='Toolbutton')
                 btn.pack(side=tk.LEFT, padx=(1, 1))
+
+    def _update_shortcut_count(self):
+        """更新模板计数"""
+        count = len(self._shortcuts)
+        self._shortcut_count.configure(text=f'{count} 个模板')
+
+    def _export_templates(self):
+        """导出快捷指令模板到 JSON 文件"""
+        from tkinter import filedialog
+        path = filedialog.asksaveasfilename(
+            title='导出模板',
+            defaultextension='.json',
+            filetypes=[('JSON 文件', '*.json'), ('所有文件', '*.*')],
+        )
+        if not path:
+            return
+        try:
+            data = [{'name': n, 'mode': m, 'text': t} for n, m, t in self._shortcuts]
+            with open(path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            self.log(f'已导出 {len(data)} 个模板到 {os.path.basename(path)}')
+        except Exception as e:
+            messagebox.showerror('导出失败', str(e), parent=self)
+
+    def _import_templates(self):
+        """从 JSON 文件导入快捷指令模板"""
+        from tkinter import filedialog
+        path = filedialog.askopenfilename(
+            title='导入模板',
+            filetypes=[('JSON 文件', '*.json'), ('所有文件', '*.*')],
+        )
+        if not path:
+            return
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            if not isinstance(data, list):
+                raise ValueError('文件格式错误')
+            count = 0
+            for item in data:
+                name = item.get('name', '').strip()
+                mode = item.get('mode', 'hex').strip()
+                text = item.get('text', '').strip()
+                if name and text:
+                    self._shortcuts.append((name, mode, text))
+                    count += 1
+            self._refresh_shortcut_buttons()
+            self._save_shortcuts()
+            self.log(f'已导入 {count} 个模板')
+        except Exception as e:
+            messagebox.showerror('导入失败', str(e), parent=self)
 
     def _send_shortcut(self, mode: str, text: str):
         """发送快捷指令"""
@@ -753,6 +819,7 @@ class SendPanel(ttk.LabelFrame):
             'suffix': self.suffix_var.get(),
             'line_delay': self.line_delay_var.get(),
             'history': self._history[-50:],
+            'notebook_tab': self._panels_nb.index(self._panels_nb.select()) if self._panels_nb else 0,
         }
 
     def load_settings(self, settings: dict):
@@ -770,3 +837,11 @@ class SendPanel(ttk.LabelFrame):
             self._history = [(m, t) for m, t in history if isinstance(m, str) and isinstance(t, str)]
             self._refresh_history_list()
         self.line_delay_var.set(settings.get('line_delay', '0'))
+
+        # 恢复 Notebook 标签页
+        tab_index = settings.get('notebook_tab')
+        if tab_index is not None and self._panels_nb:
+            try:
+                self._panels_nb.select(int(tab_index))
+            except Exception:
+                pass

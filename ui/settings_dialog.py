@@ -72,8 +72,9 @@ class SettingsDialog:
         btn_frame.pack(fill=tk.X, padx=10, pady=10)
 
         ttk.Button(btn_frame, text='恢复默认', command=self._reset_defaults).pack(side=tk.LEFT)
-        ttk.Button(btn_frame, text='取消', command=self._dialog.destroy).pack(side=tk.RIGHT, padx=(4, 0))
         ttk.Button(btn_frame, text='保存', command=self._save_and_close).pack(side=tk.RIGHT, padx=(4, 0))
+        ttk.Button(btn_frame, text='应用', command=self._apply_settings).pack(side=tk.RIGHT, padx=(4, 0))
+        ttk.Button(btn_frame, text='取消', command=self._dialog.destroy).pack(side=tk.RIGHT, padx=(4, 0))
 
     def _build_ui(self, notebook):
         # ---- 外观设置 ----
@@ -113,6 +114,7 @@ class SettingsDialog:
         theme_names = get_theme_names()
         self.ui_theme_var = tk.StringVar(
             value=self._settings.get('ui_theme', DARK))
+        self.ui_theme_var.trace('w', lambda *a: self._apply_ui_theme())
         ui_theme_frame = ttk.Frame(appearance_frame)
         ui_theme_frame.grid(row=row, column=0, columnspan=3, sticky=tk.W, pady=(0, 8))
         for t_name in theme_names:
@@ -191,12 +193,13 @@ class SettingsDialog:
         notebook.add(shortcut_frame, text='  快捷键  ')
 
         shortcuts = [
+            ('Ctrl+T / Cmd+T', '新增连接'),
             ('Ctrl+Enter / Cmd+Enter', '发送数据'),
             ('Ctrl+L / Cmd+L', '清空日志'),
-            ('Ctrl+S / Cmd+S', '保存配置'),
-            ('Ctrl+F / Cmd+F', '聚焦日志面板'),
+            ('Ctrl+F / Cmd+F', '聚焦日志搜索'),
             ('Ctrl+W / Cmd+W', '断开连接'),
-            ('Ctrl+D / Cmd+D', '清空解析结果'),
+            ('Ctrl+M / Cmd+M', '打开MQTT窗口'),
+            ('Ctrl+1~9 / Cmd+1~9', '切换工具面板'),
         ]
 
         ttk.Label(shortcut_frame, text='快捷键', font=('', 9, 'bold')).grid(
@@ -205,29 +208,33 @@ class SettingsDialog:
             row=0, column=1, sticky=tk.W, padx=(20, 0), pady=(0, 4))
 
         for i, (key, desc) in enumerate(shortcuts, 1):
-            ttk.Label(shortcut_frame, text=key, foreground='blue').grid(
+            ttk.Label(shortcut_frame, text=key).grid(
                 row=i, column=0, sticky=tk.W, pady=2)
             ttk.Label(shortcut_frame, text=desc).grid(
                 row=i, column=1, sticky=tk.W, padx=(20, 0), pady=2)
 
-        # ---- 关于 ----
-        about_frame = ttk.Frame(notebook, padding=10)
-        notebook.add(about_frame, text='  关于  ')
-
-        ttk.Label(about_frame, text='通信调试工具 v1.0',
-                  font=('', 14, 'bold')).pack(pady=(20, 10))
-        ttk.Label(about_frame, text='功能强大的串口/网络通信调试工具',
-                  font=('', 10)).pack(pady=5)
-        ttk.Label(about_frame, text='支持协议: TCP客户端/服务端, UDP, 串口, WebSocket',
-                  font=('', 9)).pack(pady=2)
-        ttk.Label(about_frame, text='支持平台: Windows, macOS, Linux',
-                  font=('', 9)).pack(pady=2)
-        ttk.Label(about_frame, text='\n基于 Python + tkinter 构建',
-                  font=('', 9), foreground='gray').pack(pady=5)
-
     def _apply_ui_theme(self):
         theme_name = self.ui_theme_var.get()
         set_theme(theme_name)
+
+    def _apply_settings(self):
+        """应用设置（不关闭对话框）"""
+        self._apply_ui_theme()
+        self._apply_ttk_theme()
+        self._settings['font_family'] = self.font_family_var.get()
+        self._settings['font_size'] = int(self.font_size_var.get())
+        self._settings['hex_uppercase'] = self.hex_upper_var.get()
+        self._settings['hex_separator'] = self.hex_sep_var.get()
+        self._settings['log_max_lines'] = int(self.log_max_var.get())
+        self._settings['auto_scroll'] = self.auto_scroll_var.get()
+        self._settings['show_send_time'] = self.show_send_time_var.get()
+        self._settings['show_recv_time'] = self.show_recv_time_var.get()
+        self._settings['save_log_on_exit'] = self.save_log_exit_var.get()
+        self._result = dict(self._settings)
+        if self._main_window:
+            self._main_window.apply_settings(self._settings)
+        if self._on_save:
+            self._on_save(dict(self._settings))
 
     def _on_close(self):
         self._dialog.destroy()

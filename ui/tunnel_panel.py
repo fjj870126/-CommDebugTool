@@ -108,11 +108,23 @@ class TunnelPanel(ttk.LabelFrame):
         btn_frame = ttk.Frame(self)
         btn_frame.pack(fill=tk.X, pady=(0, 4))
 
-        self.start_btn = ttk.Button(btn_frame, text='▶ 启动', command=self._toggle_tunnel, width=12)
+        self.start_btn = ttk.Button(btn_frame, text='▶ 启动', command=self._toggle_tunnel, width=10)
         self.start_btn.pack(side=tk.LEFT)
 
+        ttk.Button(btn_frame, text='测试连接', command=self._test_target,
+                   width=8).pack(side=tk.LEFT, padx=(4, 0))
+
+        ttk.Button(btn_frame, text='清空日志', command=self._clear_log,
+                   width=8).pack(side=tk.LEFT, padx=(4, 8))
+
+        # 流量统计
+        self._tx_bytes = 0
+        self._rx_bytes = 0
+        self._traffic_label = ttk.Label(btn_frame, text='TX: 0  RX: 0', font=('', 9), foreground='gray')
+        self._traffic_label.pack(side=tk.RIGHT, padx=(0, 8))
+
         self.status_var = tk.StringVar(value='已停止')
-        ttk.Label(btn_frame, textvariable=self.status_var, foreground='gray').pack(side=tk.RIGHT)
+        ttk.Label(btn_frame, textvariable=self.status_var, foreground='gray').pack(side=tk.RIGHT, padx=(0, 8))
 
         # 转发日志
         log_frame = ttk.LabelFrame(self, text=' 转发日志 ', padding=4)
@@ -138,6 +150,10 @@ class TunnelPanel(ttk.LabelFrame):
             self.filter_frame.pack(fill=tk.X, pady=(0, 4))
         else:
             self.filter_frame.pack_forget()
+
+    def _update_traffic(self):
+        """更新流量统计显示"""
+        self._traffic_label.configure(text=f'TX: {self._tx_bytes}  RX: {self._rx_bytes}')
 
     def _toggle_tunnel(self):
         """切换隧道状态"""
@@ -260,10 +276,13 @@ class TunnelPanel(ttk.LabelFrame):
                     
                     if sock is client_sock:
                         target.send(data)
+                        self._tx_bytes += len(data)
                         self._add_log_async(f'→ {len(data)}字节', 'data')
                     else:
                         client_sock.send(data)
+                        self._rx_bytes += len(data)
                         self._add_log_async(f'← {len(data)}字节', 'data')
+                    self.start_btn.after(0, self._update_traffic)
 
         except Exception as e:
             self._add_log_async(f'转发结束: {e}', 'info')
@@ -303,14 +322,17 @@ class TunnelPanel(ttk.LabelFrame):
                     try:
                         target.connect((target_host, target_port))
                         target.send(data)
+                        self._tx_bytes += len(data)
                         self._add_log_async(f'→TCP {len(data)}字节', 'data')
                     finally:
                         target.close()
                 else:
                     target = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                     target.sendto(data, (target_host, target_port))
+                    self._tx_bytes += len(data)
                     self._add_log_async(f'→UDP {len(data)}字节', 'data')
                     target.close()
+                self.start_btn.after(0, self._update_traffic)
 
             except socket.timeout:
                 continue
@@ -367,6 +389,39 @@ class TunnelPanel(ttk.LabelFrame):
         self.status_var.set('已停止')
         self._add_log('⏹ 隧道已停止', 'info')
         StatusBus.send('隧道', '已停止', 'info')
+
+    def _test_target(self):
+        """测试目标地址是否可达"""
+        target_host = self.target_host_var.get().strip()
+        try:
+            target_port = int(self.target_port_var.get())
+        except ValueError:
+            messagebox.showerror('错误', '目标端口格式错误', parent=self)
+            return
+
+        if not target_host:
+            messagebox.showerror('错误', '请输入目标地址', parent=self)
+            return
+
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(3)
+            sock.connect((target_host, target_port))
+            sock.close()
+            self._add_log(f'✅ 目标 {target_host}:{target_port} 可达', 'info')
+            StatusBus.send('隧道', f'目标 {target_host}:{target_port} 可达', 'success')
+        except Exception as e:
+            self._add_log(f'❌ 目标 {target_host}:{target_port} 不可达: {e}', 'error')
+            StatusBus.send('隧道', f'目标不可达', 'warning')
+
+    def _clear_log(self):
+        """清空转发日志"""
+        self.log_text.configure(state=tk.NORMAL)
+        self.log_text.delete(1.0, tk.END)
+        self.log_text.configure(state=tk.DISABLED)
+        self._tx_bytes = 0
+        self._rx_bytes = 0
+        self._traffic_label.configure(text='TX: 0  RX: 0')
 
     def destroy(self):
         self._running = False

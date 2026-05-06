@@ -2,6 +2,7 @@
 
 import os
 import json
+import time
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import tkinter.font as tkfont
@@ -47,7 +48,7 @@ class MainWindow:
         x = (screen_w - win_w) // 2
         y = (screen_h - win_h) // 2
         self.root.geometry(f'{win_w}x{win_h}+{x}+{y}')
-        self.root.minsize(1400, 700)
+        self.root.minsize(1200, 650)
 
         # 通信对象
         self._tcp_client = TcpClient()
@@ -74,11 +75,13 @@ class MainWindow:
         self._load_settings()
         self._build_ui()
         self._apply_ttk_theme_from_settings()
-        self._load_config()
-        self._setup_callbacks()
-        self._setup_shortcuts()
-        StatusBus.register(self._on_status_update)
-        self.root.after(3000, self._auto_check_update)
+        # 延迟加载配置和非关键初始化，加速窗口显示
+        self.root.after_idle(self._load_config)
+        self.root.after_idle(self._setup_callbacks)
+        self.root.after_idle(self._setup_shortcuts)
+        self.root.after_idle(lambda: StatusBus.register(self._on_status_update))
+        # 菜单栏创建后延迟检查更新
+        self.root.after(3000, lambda: self.root.after_idle(self._auto_check_update))
 
     def _build_ui(self):
         style = ttk.Style()
@@ -111,6 +114,7 @@ class MainWindow:
                                     on_disconnect=self._on_disconnect,
                                     on_log=lambda msg: self.log_panel.log_info(msg))
         self.comm_panel.pack(fill=tk.BOTH, expand=True)
+        self.comm_panel._on_column_widths_changed = self._on_column_widths_changed
 
         # ===== 右侧: 日志面板 =====
         right_outer = ttk.Frame(self._main_paned)
@@ -124,7 +128,8 @@ class MainWindow:
         from ui.tree_nav import TreeNavPanel
         from ui.tools_notebook import ToolsContainer
         self.tree_nav = TreeNavPanel(self._left_paned,
-                                     on_select=self._on_tree_nav_select)
+                                     on_select=self._on_tree_nav_select,
+                                     on_favorites_changed=self._on_favorites_changed)
         self._left_paned.add(self.tree_nav, weight=4)
 
         self.tools_container = ToolsContainer(self._left_paned,
@@ -133,10 +138,14 @@ class MainWindow:
                                               main_window=self)
         self.tree_nav.set_tools_container(self.tools_container)
 
-        # ========== 底部状态栏 ==========
+        # ========== 底部状态栏（延迟创建，让窗口先显示）==========
         self._build_status_bar()
 
-        # ========== 菜单栏 ==========
+        # 菜单栏延迟到窗口显示后创建
+        self.root.after_idle(self._build_menubar)
+
+    def _build_menubar(self):
+        """创建菜单栏（延迟执行以加速窗口显示）"""
         menubar = tk.Menu(self.root)
         self.root.config(menu=menubar)
 
@@ -145,6 +154,11 @@ class MainWindow:
         menubar.add_cascade(label='文件', menu=file_menu)
         file_menu.add_command(label='📁 保存工程', command=self._save_project, accelerator='Ctrl+S')
         file_menu.add_command(label='📂 加载工程', command=self._load_project, accelerator='Ctrl+O')
+        file_menu.add_separator()
+        layout_menu = tk.Menu(file_menu, tearoff=0)
+        layout_menu.add_command(label='保存当前布局...', command=self._save_layout_preset)
+        layout_menu.add_command(label='加载布局...', command=self._load_layout_preset)
+        file_menu.add_cascade(label='布局预设', menu=layout_menu)
         file_menu.add_separator()
         file_menu.add_command(label='退出', command=self._on_close, accelerator='Ctrl+Q')
 
@@ -178,51 +192,56 @@ class MainWindow:
             pass
 
     def _build_status_bar(self):
-        """构建底部状态栏"""
+        """构建底部状态栏 — 三组分区布局"""
         status_frame = ttk.Frame(self.root)
-        status_frame.pack(fill=tk.X, padx=6, pady=(1, 4))
+        status_frame.pack(fill=tk.X, padx=8, pady=(1, 4))
 
-        # 连接状态
+        # ── 第1组：连接状态 + 协议列表 ──
         self._status_conn = ttk.Label(status_frame, text='● 未连接', foreground='red')
         self._status_conn.pack(side=tk.LEFT, padx=(0, 4))
 
-        # 已连接协议列表
         self._status_protos = ttk.Label(status_frame, text='未连接')
-        self._status_protos.pack(side=tk.LEFT, padx=(0, 4))
+        self._status_protos.pack(side=tk.LEFT, padx=(0, 12))
         ToolTip(self._status_protos, self._get_protos_tooltip)
 
-        # 分隔线
-        ttk.Separator(status_frame, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=4)
+        # 分组分隔
+        ttk.Separator(status_frame, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=6)
 
-        # TX 速率
-        self._status_tx_rate = ttk.Label(status_frame, text='TX: 0 B/s')
+        # ── 第2组：TX/RX 速率 ──
+        self._status_tx_rate = ttk.Label(status_frame, text='TX: 0 B/s ↑')
         self._status_tx_rate.pack(side=tk.LEFT, padx=(0, 4))
 
-        # RX 速率
-        self._status_rx_rate = ttk.Label(status_frame, text='RX: 0 B/s')
-        self._status_rx_rate.pack(side=tk.LEFT, padx=(0, 4))
+        self._status_rx_rate = ttk.Label(status_frame, text='RX: 0 B/s ↓')
+        self._status_rx_rate.pack(side=tk.LEFT, padx=(0, 12))
 
-        # 分隔线
-        ttk.Separator(status_frame, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=4)
+        # 分组分隔
+        ttk.Separator(status_frame, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=6)
 
-        # TX 总量
+        # ── 第3组：TX/RX 总量 + 峰值 ──
         self._status_tx_total = ttk.Label(status_frame, text='TX↑: 0')
         self._status_tx_total.pack(side=tk.LEFT, padx=(0, 4))
 
-        # RX 总量
         self._status_rx_total = ttk.Label(status_frame, text='RX↓: 0')
         self._status_rx_total.pack(side=tk.LEFT, padx=(0, 4))
 
-        # 分隔线
-        ttk.Separator(status_frame, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=4)
+        ttk.Separator(status_frame, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=6)
+
+        # ── 第4组：峰值速率 + 连接时长 ──
+        self._status_peak = ttk.Label(status_frame, text='峰值 TX:0 RX:0')
+        self._status_peak.pack(side=tk.LEFT, padx=(0, 4))
+
+        self._status_uptime = ttk.Label(status_frame, text='时长: 00:00:00')
+        self._status_uptime.pack(side=tk.LEFT, padx=(0, 4))
 
         # 当前时间（右侧）
         self._status_time = ttk.Label(status_frame, text='')
         self._status_time.pack(side=tk.RIGHT, padx=(0, 8))
 
-        # 启动定时刷新（每秒更新速率和总量）
         self._prev_tx_total = 0
         self._prev_rx_total = 0
+        self._peak_tx_rate = 0
+        self._peak_rx_rate = 0
+        self._connect_start_time = None
         self._status_tick()
 
     def _status_tick(self):
@@ -253,12 +272,37 @@ class MainWindow:
 
         tx_rate = tx_total - self._prev_tx_total
         rx_rate = rx_total - self._prev_rx_total
-        self._status_tx_rate.configure(text=f'TX: {tx_rate} B/s')
-        self._status_rx_rate.configure(text=f'RX: {rx_rate} B/s')
-        self._status_tx_total.configure(text=f'TX↑: {tx_total}')
-        self._status_rx_total.configure(text=f'RX↓: {rx_total}')
+        self._peak_tx_rate = max(self._peak_tx_rate, tx_rate)
+        self._peak_rx_rate = max(self._peak_rx_rate, rx_rate)
+
+        def fmt_bytes(n):
+            if n >= 1024 * 1024:
+                return f'{n / 1024 / 1024:.1f}MB'
+            elif n >= 1024:
+                return f'{n / 1024:.1f}KB'
+            return str(n)
+
+        self._status_tx_rate.configure(text=f'TX: {fmt_bytes(tx_rate)}/s')
+        self._status_rx_rate.configure(text=f'RX: {fmt_bytes(rx_rate)}/s')
+        self._status_tx_total.configure(text=f'TX↑: {fmt_bytes(tx_total)}')
+        self._status_rx_total.configure(text=f'RX↓: {fmt_bytes(rx_total)}')
+        self._status_peak.configure(
+            text=f'峰值 TX:{fmt_bytes(self._peak_tx_rate)}/s RX:{fmt_bytes(self._peak_rx_rate)}/s')
         self._prev_tx_total = tx_total
         self._prev_rx_total = rx_total
+
+        # 连接时长
+        if online_protos and self._connect_start_time is None:
+            self._connect_start_time = time.time()
+        elif not online_protos:
+            self._connect_start_time = None
+        if self._connect_start_time:
+            elapsed = int(time.time() - self._connect_start_time)
+            h, rem = divmod(elapsed, 3600)
+            m, s = divmod(rem, 60)
+            self._status_uptime.configure(text=f'时长: {h:02d}:{m:02d}:{s:02d}')
+        else:
+            self._status_uptime.configure(text='时长: --:--:--')
 
         # 更新时间
         from datetime import datetime
@@ -323,13 +367,16 @@ class MainWindow:
 
     def _setup_shortcuts(self):
         """设置全局快捷键"""
+        # Ctrl+T: 新增连接
+        self.root.bind('<Control-t>', lambda e: self.comm_panel._do_connect())
+        self.root.bind('<Command-t>', lambda e: self.comm_panel._do_connect())
         # Ctrl+Enter: 发送
         self.root.bind('<Control-Return>', lambda e: self._send_shortcut())
         self.root.bind('<Command-Return>', lambda e: self._send_shortcut())
         # Ctrl+L: 清空日志
         self.root.bind('<Control-l>', lambda e: self.log_panel.clear())
         self.root.bind('<Command-l>', lambda e: self.log_panel.clear())
-        # Ctrl+F: 搜索日志 (聚焦到日志)
+        # Ctrl+F: 搜索日志
         self.root.bind('<Control-f>', lambda e: self._focus_log())
         self.root.bind('<Command-f>', lambda e: self._focus_log())
         # Ctrl+W: 断开连接
@@ -338,6 +385,18 @@ class MainWindow:
         # Ctrl+M: 打开 MQTT 窗口
         self.root.bind('<Control-m>', lambda e: self._open_mqtt_window())
         self.root.bind('<Command-m>', lambda e: self._open_mqtt_window())
+
+        # Ctrl+1~9: 切换工具面板
+        tool_map = {
+            '1': '快捷发送', '2': '协议解析', '3': '协议编辑器',
+            '4': '转换器', '5': '校验和', '6': '压力测试',
+            '7': '脚本', '8': '告警', '9': '波形',
+        }
+        for key, panel_name in tool_map.items():
+            self.root.bind(f'<Control-Key-{key}>',
+                           lambda e, pn=panel_name: self.tools_container.switch_to_panel(pn))
+            self.root.bind(f'<Command-Key-{key}>',
+                           lambda e, pn=panel_name: self.tools_container.switch_to_panel(pn))
 
     def _send_shortcut(self):
         """快捷键发送 - 从工具集中的快捷发送面板获取数据发送"""
@@ -833,6 +892,7 @@ class MainWindow:
                 'connections': self.comm_panel.get_connections_save_data(),
                 'shortcuts': self.tools_container.get_send_panel().get_shortcuts_data(),
                 'settings': self._settings_dialog.get_all_settings() if hasattr(self, '_settings_dialog') else {},
+                'favorites': self.tree_nav.get_favorites(),
                 'window': {
                     'width': self.root.winfo_width(),
                     'height': self.root.winfo_height(),
@@ -896,6 +956,7 @@ class MainWindow:
                 'tools': self.tools_container.get_settings(),
                 'shortcuts': self.tools_container.get_send_panel().get_shortcuts_data(),
                 'settings': self._settings_dialog.get_all_settings() if hasattr(self, '_settings_dialog') else {},
+                'favorites': self.tree_nav.get_favorites(),
                 'window': {
                     'width': self.root.winfo_width(),
                     'height': self.root.winfo_height(),
@@ -965,10 +1026,17 @@ class MainWindow:
             # 恢复分割比例
             sash_ratio = project.get('sash_ratio')
             if sash_ratio is not None:
-                self.root.after(200, lambda sr=sash_ratio: self._set_initial_sash(self._main_paned, sr))
+                self.root.after(300, lambda sr=sash_ratio: self._set_initial_sash(self._main_paned, sr))
+                self.root.after(800, lambda sr=sash_ratio: self._set_initial_sash(self._main_paned, sr))
             left_sash_ratio = project.get('left_sash_ratio')
             if left_sash_ratio is not None:
-                self.root.after(200, lambda sr=left_sash_ratio: self._set_initial_sash(self._left_paned, sr, vertical=True))
+                self.root.after(300, lambda sr=left_sash_ratio: self._set_initial_sash(self._left_paned, sr, vertical=True))
+                self.root.after(800, lambda sr=left_sash_ratio: self._set_initial_sash(self._left_paned, sr, vertical=True))
+
+            # 恢复收藏
+            favorites = project.get('favorites', [])
+            if favorites:
+                self.tree_nav.set_favorites(favorites)
 
             # 恢复选中的面板
             current_panel = project.get('current_panel')
@@ -978,6 +1046,126 @@ class MainWindow:
             self.log_panel.log_info(f'工程已加载: {os.path.basename(file_path)}')
         except Exception as e:
             messagebox.showerror('加载失败', f'工程数据加载失败: {e}')
+
+    def _on_favorites_changed(self, favorites):
+        """收藏列表变更时自动保存"""
+        self._save_config()
+
+    _col_save_timer = None
+
+    def _on_column_widths_changed(self, widths):
+        """连接表格列宽变更时延迟保存（防抖 1 秒）"""
+        # 直接将新列宽设置到 tree（tree 已有最新值，这里用回调确认）
+        if self._col_save_timer:
+            try:
+                self.root.after_cancel(self._col_save_timer)
+            except Exception:
+                pass
+        self._col_save_timer = self.root.after(1000, self._save_config)
+
+    def _save_layout_preset(self):
+        """保存当前布局为预设"""
+        from tkinter import simpledialog
+        name = simpledialog.askstring('保存布局预设', '请输入布局名称：', parent=self.root)
+        if not name:
+            return
+        name = name.strip()
+        if not name:
+            return
+        try:
+            sash_ratio = None
+            total_width = self._main_paned.winfo_width()
+            if total_width > 0:
+                sash_pos = self._main_paned.sashpos(0)
+                sash_ratio = max(0.1, min(0.9, sash_pos / total_width))
+            left_sash_ratio = None
+            total_height = self._left_paned.winfo_height()
+            if total_height > 0:
+                sash_pos = self._left_paned.sashpos(0)
+                left_sash_ratio = max(0.1, min(0.9, sash_pos / total_height))
+            layout = {
+                'window': {
+                    'width': self.root.winfo_width(),
+                    'height': self.root.winfo_height(),
+                },
+                'sash_ratio': sash_ratio,
+                'left_sash_ratio': left_sash_ratio,
+                'current_panel': self.tools_container._current_panel_name,
+            }
+            config = self._load_config_data()
+            layouts = config.get('layouts', {})
+            layouts[name] = layout
+            config['layouts'] = layouts
+            with open(self._config_path, 'w', encoding='utf-8') as f:
+                json.dump(config, f, ensure_ascii=False, indent=2)
+            self.log_panel.log_info(f'布局预设已保存: {name}')
+        except Exception as e:
+            self.log_panel.log_info(f'保存布局预设失败: {e}')
+
+    def _load_layout_preset(self):
+        """加载已保存的布局预设"""
+        config = self._load_config_data()
+        layouts = config.get('layouts', {})
+        if not layouts:
+            self.log_panel.log_info('没有已保存的布局预设')
+            return
+        # 弹出选择对话框
+        from tkinter import simpledialog
+        keys = list(layouts.keys())
+        dialog = tk.Toplevel(self.root)
+        dialog.title('加载布局预设')
+        dialog.resizable(False, False)
+        dialog.transient(self.root)
+        dialog.grab_set()
+        pw, ph = self.root.winfo_width(), self.root.winfo_height()
+        px, py = self.root.winfo_rootx(), self.root.winfo_rooty()
+        w, h = 300, min(400, len(keys) * 40 + 80)
+        dialog.geometry(f'{w}x{h}+{px + (pw - w)//2}+{py + (ph - h)//2}')
+        ttk.Label(dialog, text='选择布局预设：', font=('', 9, 'bold')).pack(pady=(10, 4))
+        listbox = tk.Listbox(dialog, height=min(8, len(keys)))
+        listbox.pack(fill=tk.BOTH, expand=True, padx=10, pady=4)
+        for k in keys:
+            listbox.insert(tk.END, k)
+        listbox.selection_set(0)
+
+        def do_load():
+            sel = listbox.curselection()
+            if not sel:
+                return
+            name = keys[sel[0]]
+            layout = layouts[name]
+            win = layout.get('window', {})
+            if win.get('width') and win.get('height'):
+                self.root.geometry(f'{win["width"]}x{win["height"]}')
+            sash_ratio = layout.get('sash_ratio')
+            if sash_ratio is not None:
+                self.root.after(200, lambda sr=sash_ratio: self._set_initial_sash(self._main_paned, sr))
+            left_sash_ratio = layout.get('left_sash_ratio')
+            if left_sash_ratio is not None:
+                self.root.after(200, lambda sr=left_sash_ratio: self._set_initial_sash(self._left_paned, sr, vertical=True))
+            panel = layout.get('current_panel')
+            if panel:
+                self.root.after(300, lambda: self.tools_container.switch_to_panel(panel))
+            self.log_panel.log_info(f'已加载布局预设: {name}')
+            dialog.destroy()
+
+        def do_delete():
+            sel = listbox.curselection()
+            if not sel:
+                return
+            name = keys[sel[0]]
+            del layouts[name]
+            config['layouts'] = layouts
+            with open(self._config_path, 'w', encoding='utf-8') as f:
+                json.dump(config, f, ensure_ascii=False, indent=2)
+            listbox.delete(sel[0])
+            self.log_panel.log_info(f'布局预设已删除: {name}')
+
+        btn_f = ttk.Frame(dialog)
+        btn_f.pack(fill=tk.X, padx=10, pady=(4, 10))
+        ttk.Button(btn_f, text='加载', command=do_load).pack(side=tk.LEFT, padx=(0, 4))
+        ttk.Button(btn_f, text='删除', command=do_delete).pack(side=tk.LEFT, padx=(0, 4))
+        ttk.Button(btn_f, text='取消', command=dialog.destroy).pack(side=tk.RIGHT)
 
     def _apply_ttk_theme_from_settings(self):
         ttk_theme = self._settings_dialog.get_setting('ttk_theme', 'clam')
@@ -1027,16 +1215,23 @@ class MainWindow:
             
             sash_ratio = config.get('sash_ratio')
             if sash_ratio is not None:
-                self.root.after(100, lambda sr=sash_ratio: self._set_initial_sash(self._main_paned, sr))
+                self.root.after(300, lambda sr=sash_ratio: self._set_initial_sash(self._main_paned, sr))
+                self.root.after(800, lambda sr=sash_ratio: self._set_initial_sash(self._main_paned, sr))
             else:
-                self.root.after(100, lambda: self._set_initial_sash(self._main_paned))
+                self.root.after(300, lambda: self._set_initial_sash(self._main_paned))
 
             left_sash_ratio = config.get('left_sash_ratio')
             if left_sash_ratio is not None:
-                self.root.after(100, lambda sr=left_sash_ratio: self._set_initial_sash(self._left_paned, sr, vertical=True))
+                self.root.after(300, lambda sr=left_sash_ratio: self._set_initial_sash(self._left_paned, sr, vertical=True))
+                self.root.after(800, lambda sr=left_sash_ratio: self._set_initial_sash(self._left_paned, sr, vertical=True))
             else:
-                self.root.after(100, lambda: self._set_initial_sash(self._left_paned, vertical=True))
+                self.root.after(300, lambda: self._set_initial_sash(self._left_paned, vertical=True))
             
+            # 恢复收藏
+            favorites = config.get('favorites', [])
+            if favorites:
+                self.tree_nav.set_favorites(favorites)
+
             # 保存 MQTT 配置，供后续打开 MQTT 窗口时使用
             self._mqtt_config = config.get('mqtt')
         except Exception as e:

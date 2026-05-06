@@ -3,6 +3,7 @@
 import tkinter as tk
 from tkinter import ttk
 import threading
+from ui.theme import get_theme
 from utils.context_menu import add_entry_context_menu, add_combobox_context_menu
 from utils.hex_utils import bytes_to_hex_str, hex_str_to_bytes
 
@@ -11,7 +12,7 @@ class MqttPanel(ttk.LabelFrame):
     """MQTT 客户端面板 - 连接 Broker、发布消息、订阅主题"""
 
     def __init__(self, parent, on_send=None, log_panel=None):
-        super().__init__(parent, text=' MQTT 客户端 ', padding=4)
+        super().__init__(parent, text=' MQTT 客户端 ', padding=8)
         self._mqtt = None
         self._on_send = on_send
         self._log_panel = log_panel
@@ -103,101 +104,112 @@ class MqttPanel(ttk.LabelFrame):
         cfg_frame = ttk.LabelFrame(tab, text=' Broker 配置 ', padding=6)
         cfg_frame.pack(fill=tk.X, pady=(0, 6))
 
-        # Broker 地址
+        # Broker 地址 — grid 布局，输入框自适应伸缩
         row1 = ttk.Frame(cfg_frame)
         row1.pack(fill=tk.X, pady=2)
-        ttk.Label(row1, text='Broker:', width=10).pack(side=tk.LEFT)
+        row1.columnconfigure(1, weight=1)
+        ttk.Label(row1, text='Broker:').grid(row=0, column=0, sticky=tk.W)
         self._host_var = tk.StringVar(value='broker.emqx.io')
         host_entry = ttk.Entry(row1, textvariable=self._host_var)
-        host_entry.pack(side=tk.LEFT, padx=(4, 8), fill=tk.X, expand=True)
+        host_entry.grid(row=0, column=1, sticky=tk.EW, padx=(4, 8))
         add_entry_context_menu(host_entry)
 
-        ttk.Label(row1, text='端口:').pack(side=tk.LEFT)
+        ttk.Label(row1, text='端口:').grid(row=0, column=2, sticky=tk.W)
         self._port_var = tk.StringVar(value='1883')
         port_entry = ttk.Entry(row1, textvariable=self._port_var, width=6)
-        port_entry.pack(side=tk.LEFT, padx=(4, 8))
+        port_entry.grid(row=0, column=3, sticky=tk.W, padx=(4, 8))
         add_entry_context_menu(port_entry)
 
         self._tls_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(row1, text='TLS', variable=self._tls_var).pack(side=tk.LEFT)
+        ttk.Checkbutton(row1, text='TLS', variable=self._tls_var).grid(row=0, column=4, sticky=tk.W)
 
-        # 认证信息
+        # 认证信息 — 三列等宽伸缩
         row2 = ttk.Frame(cfg_frame)
         row2.pack(fill=tk.X, pady=2)
-        ttk.Label(row2, text='Client ID:', width=10).pack(side=tk.LEFT)
+        for col in (1, 3, 5):
+            row2.columnconfigure(col, weight=1)
+        ttk.Label(row2, text='Client ID:').grid(row=0, column=0, sticky=tk.W)
         self._client_id_var = tk.StringVar(value='')
         client_id_entry = ttk.Entry(row2, textvariable=self._client_id_var)
-        client_id_entry.pack(side=tk.LEFT, padx=(4, 8), fill=tk.X, expand=True)
+        client_id_entry.grid(row=0, column=1, sticky=tk.EW, padx=(4, 8))
         add_entry_context_menu(client_id_entry)
 
-        ttk.Label(row2, text='用户名:').pack(side=tk.LEFT)
+        ttk.Label(row2, text='用户名:').grid(row=0, column=2, sticky=tk.W)
         self._username_var = tk.StringVar(value='')
         username_entry = ttk.Entry(row2, textvariable=self._username_var)
-        username_entry.pack(side=tk.LEFT, padx=(4, 4), fill=tk.X, expand=True)
+        username_entry.grid(row=0, column=3, sticky=tk.EW, padx=(4, 8))
         add_entry_context_menu(username_entry)
 
-        ttk.Label(row2, text='密码:').pack(side=tk.LEFT)
+        ttk.Label(row2, text='密码:').grid(row=0, column=4, sticky=tk.W)
         self._password_var = tk.StringVar(value='')
         pwd_entry = ttk.Entry(row2, textvariable=self._password_var, show='*')
-        pwd_entry.pack(side=tk.LEFT, padx=(4, 0), fill=tk.X, expand=True)
+        pwd_entry.grid(row=0, column=5, sticky=tk.EW, padx=(4, 0))
         add_entry_context_menu(pwd_entry)
 
-        # 连接模式 + 自动重连
-        row3 = ttk.Frame(cfg_frame)
-        row3.pack(fill=tk.X, pady=2)
-        ttk.Label(row3, text='连接模式:', width=10).pack(side=tk.LEFT)
+        # 连接模式 + 自动重连 + 间隔（原来一行太挤，拆成两行）
+        row3a = ttk.Frame(cfg_frame)
+        row3a.pack(fill=tk.X, pady=2)
+        row3a.columnconfigure(3, weight=1)
+        ttk.Label(row3a, text='连接模式:').grid(row=0, column=0, sticky=tk.W)
         self._conn_mode_var = tk.StringVar(value='TCP')
-        conn_mode_cb = ttk.Combobox(row3, textvariable=self._conn_mode_var,
+        conn_mode_cb = ttk.Combobox(row3a, textvariable=self._conn_mode_var,
                                     values=['TCP', 'WebSocket'], state='readonly', width=10)
-        conn_mode_cb.pack(side=tk.LEFT, padx=(4, 8))
+        conn_mode_cb.grid(row=0, column=1, sticky=tk.W, padx=(4, 8))
         add_combobox_context_menu(conn_mode_cb)
 
         self._auto_reconnect_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(row3, text='自动重连', variable=self._auto_reconnect_var).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Checkbutton(row3a, text='自动重连', variable=self._auto_reconnect_var).grid(row=0, column=2, sticky=tk.W, padx=(0, 8))
 
-        ttk.Label(row3, text='间隔(秒):').pack(side=tk.LEFT)
+        ttk.Label(row3a, text='间隔(秒):').grid(row=0, column=3, sticky=tk.W)
         self._reconnect_delay_var = tk.StringVar(value='5')
-        delay_entry = ttk.Entry(row3, textvariable=self._reconnect_delay_var, width=5)
-        delay_entry.pack(side=tk.LEFT, padx=(4, 8))
+        delay_entry = ttk.Entry(row3a, textvariable=self._reconnect_delay_var, width=5)
+        delay_entry.grid(row=0, column=4, sticky=tk.W, padx=(4, 0))
         add_entry_context_menu(delay_entry)
 
-        ttk.Label(row3, text='最大重试:').pack(side=tk.LEFT)
+        # 最大重试（独立一行）
+        row3b = ttk.Frame(cfg_frame)
+        row3b.pack(fill=tk.X, pady=2)
+        ttk.Label(row3b, text='最大重试:').pack(side=tk.LEFT)
         self._max_reconnect_var = tk.StringVar(value='0')
-        max_entry = ttk.Entry(row3, textvariable=self._max_reconnect_var, width=5)
-        max_entry.pack(side=tk.LEFT, padx=(4, 0))
+        max_entry = ttk.Entry(row3b, textvariable=self._max_reconnect_var, width=5)
+        max_entry.pack(side=tk.LEFT, padx=(4, 4))
         add_entry_context_menu(max_entry)
-        ttk.Label(row3, text='(0=无限)').pack(side=tk.LEFT, padx=(4, 0))
+        ttk.Label(row3b, text='(0=无限)').pack(side=tk.LEFT)
 
         # TLS 证书配置
         cert_frame = ttk.LabelFrame(tab, text=' TLS 证书 ', padding=6)
         cert_frame.pack(fill=tk.X, pady=(0, 6))
 
+        self._ca_cert_var = tk.StringVar(value='')
+        self._client_cert_var = tk.StringVar(value='')
+        self._client_key_var = tk.StringVar(value='')
+
         row4 = ttk.Frame(cert_frame)
         row4.pack(fill=tk.X, pady=2)
-        ttk.Label(row4, text='CA 证书:', width=10).pack(side=tk.LEFT)
-        self._ca_cert_var = tk.StringVar(value='')
+        row4.columnconfigure(1, weight=1)
+        ttk.Label(row4, text='CA 证书:').grid(row=0, column=0, sticky=tk.W)
         ca_cert_entry = ttk.Entry(row4, textvariable=self._ca_cert_var)
-        ca_cert_entry.pack(side=tk.LEFT, padx=(4, 4), fill=tk.X, expand=True)
+        ca_cert_entry.grid(row=0, column=1, sticky=tk.EW, padx=(4, 4))
         add_entry_context_menu(ca_cert_entry)
-        ttk.Button(row4, text='浏览', command=lambda: self._browse_file(self._ca_cert_var), width=6).pack(side=tk.LEFT)
+        ttk.Button(row4, text='浏览', command=lambda: self._browse_file(self._ca_cert_var), width=6).grid(row=0, column=2, sticky=tk.W)
 
         row5 = ttk.Frame(cert_frame)
         row5.pack(fill=tk.X, pady=2)
-        ttk.Label(row5, text='客户端证书:', width=10).pack(side=tk.LEFT)
-        self._client_cert_var = tk.StringVar(value='')
+        row5.columnconfigure(1, weight=1)
+        ttk.Label(row5, text='客户端证书:').grid(row=0, column=0, sticky=tk.W)
         client_cert_entry = ttk.Entry(row5, textvariable=self._client_cert_var)
-        client_cert_entry.pack(side=tk.LEFT, padx=(4, 4), fill=tk.X, expand=True)
+        client_cert_entry.grid(row=0, column=1, sticky=tk.EW, padx=(4, 4))
         add_entry_context_menu(client_cert_entry)
-        ttk.Button(row5, text='浏览', command=lambda: self._browse_file(self._client_cert_var), width=6).pack(side=tk.LEFT)
+        ttk.Button(row5, text='浏览', command=lambda: self._browse_file(self._client_cert_var), width=6).grid(row=0, column=2, sticky=tk.W)
 
         row6 = ttk.Frame(cert_frame)
         row6.pack(fill=tk.X, pady=2)
-        ttk.Label(row6, text='客户端密钥:', width=10).pack(side=tk.LEFT)
-        self._client_key_var = tk.StringVar(value='')
+        row6.columnconfigure(1, weight=1)
+        ttk.Label(row6, text='客户端密钥:').grid(row=0, column=0, sticky=tk.W)
         client_key_entry = ttk.Entry(row6, textvariable=self._client_key_var)
-        client_key_entry.pack(side=tk.LEFT, padx=(4, 4), fill=tk.X, expand=True)
+        client_key_entry.grid(row=0, column=1, sticky=tk.EW, padx=(4, 4))
         add_entry_context_menu(client_key_entry)
-        ttk.Button(row6, text='浏览', command=lambda: self._browse_file(self._client_key_var), width=6).pack(side=tk.LEFT)
+        ttk.Button(row6, text='浏览', command=lambda: self._browse_file(self._client_key_var), width=6).grid(row=0, column=2, sticky=tk.W)
 
         # 遗嘱消息
         will_frame = ttk.LabelFrame(tab, text=' 遗嘱消息 ', padding=6)
@@ -205,28 +217,30 @@ class MqttPanel(ttk.LabelFrame):
 
         row7 = ttk.Frame(will_frame)
         row7.pack(fill=tk.X, pady=2)
-        ttk.Label(row7, text='遗嘱主题:', width=10).pack(side=tk.LEFT)
+        row7.columnconfigure(1, weight=1)
+        ttk.Label(row7, text='遗嘱主题:').grid(row=0, column=0, sticky=tk.W)
         self._will_topic_var = tk.StringVar(value='')
         will_topic_entry = ttk.Entry(row7, textvariable=self._will_topic_var)
-        will_topic_entry.pack(side=tk.LEFT, padx=(4, 8), fill=tk.X, expand=True)
+        will_topic_entry.grid(row=0, column=1, sticky=tk.EW, padx=(4, 8))
         add_entry_context_menu(will_topic_entry)
 
-        ttk.Label(row7, text='QoS:').pack(side=tk.LEFT)
+        ttk.Label(row7, text='QoS:').grid(row=0, column=2, sticky=tk.W)
         self._will_qos_var = tk.IntVar(value=0)
         will_qos_cb = ttk.Combobox(row7, textvariable=self._will_qos_var,
                                    values=[0, 1, 2], state='readonly', width=4)
-        will_qos_cb.pack(side=tk.LEFT, padx=(4, 4))
+        will_qos_cb.grid(row=0, column=3, sticky=tk.W, padx=(4, 4))
         add_combobox_context_menu(will_qos_cb)
 
         self._will_retain_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(row7, text='保留', variable=self._will_retain_var).pack(side=tk.LEFT, padx=(4, 0))
+        ttk.Checkbutton(row7, text='保留', variable=self._will_retain_var).grid(row=0, column=4, sticky=tk.W, padx=(4, 0))
 
         row8 = ttk.Frame(will_frame)
         row8.pack(fill=tk.X, pady=2)
-        ttk.Label(row8, text='遗嘱消息:', width=10).pack(side=tk.LEFT)
+        row8.columnconfigure(1, weight=1)
+        ttk.Label(row8, text='遗嘱消息:').grid(row=0, column=0, sticky=tk.W)
         self._will_payload_var = tk.StringVar(value='')
         will_payload_entry = ttk.Entry(row8, textvariable=self._will_payload_var)
-        will_payload_entry.pack(side=tk.LEFT, padx=(4, 0), fill=tk.X, expand=True)
+        will_payload_entry.grid(row=0, column=1, sticky=tk.EW, padx=(4, 0))
         add_entry_context_menu(will_payload_entry)
 
     def _build_pub_tab(self):
@@ -427,15 +441,16 @@ class MqttPanel(ttk.LabelFrame):
 
         ping_row = ttk.Frame(ping_frame)
         ping_row.pack(fill=tk.X, pady=2)
-        ttk.Label(ping_row, text='Ping 主题:').pack(side=tk.LEFT)
+        ping_row.columnconfigure(1, weight=1)
+        ttk.Label(ping_row, text='Ping 主题:').grid(row=0, column=0, sticky=tk.W)
         self._ping_topic_var = tk.StringVar(value='ping/test')
-        ping_topic_entry = ttk.Entry(ping_row, textvariable=self._ping_topic_var, width=20)
-        ping_topic_entry.pack(side=tk.LEFT, padx=(4, 8))
+        ping_topic_entry = ttk.Entry(ping_row, textvariable=self._ping_topic_var)
+        ping_topic_entry.grid(row=0, column=1, sticky=tk.EW, padx=(4, 8))
         add_entry_context_menu(ping_topic_entry)
 
-        ttk.Button(ping_row, text='开始 Ping', command=self._toggle_ping, width=10).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Button(ping_row, text='开始 Ping', command=self._toggle_ping, width=10).grid(row=0, column=2, sticky=tk.W, padx=(0, 8))
         self._ping_label = ttk.Label(ping_row, text='延迟: -- ms', font=('', 9))
-        self._ping_label.pack(side=tk.LEFT)
+        self._ping_label.grid(row=0, column=3, sticky=tk.W)
         self._ping_running = False
         self._ping_times = []
 
@@ -471,7 +486,7 @@ class MqttPanel(ttk.LabelFrame):
         self._sub_btn.configure(state=state)
         self._unsub_btn.configure(state=state)
         self._conn_btn.configure(text='断开' if self._connected else '连接', state='normal')
-        self._set_status_color('#00cc00' if self._connected else '#cccccc')
+        self._set_status_color(get_theme().color('green') if self._connected else get_theme().color('gray'))
 
     def _reset_defaults(self):
         """恢复默认测试参数"""
@@ -562,7 +577,7 @@ class MqttPanel(ttk.LabelFrame):
                 reconnect_delay=reconnect_delay,
                 max_reconnect_retries=max_reconnect,
             )
-            self._set_status_color('#ffcc00')  # 黄色=连接中
+            self._set_status_color(get_theme().color('warning'))  # 连接中
             if self._log_panel:
                 self._log_panel.log_info(f'[MQTT] 正在连接 {host}:{port}...')
         except Exception as e:
@@ -1308,6 +1323,11 @@ class MqttPanel(ttk.LabelFrame):
         # 保存订阅列表（用于持久化）
         if self._mqtt:
             settings['saved_subscriptions'] = dict(self._mqtt.subscriptions)
+        # 保存当前标签页
+        try:
+            settings['notebook_tab'] = self._notebook.index(self._notebook.select())
+        except Exception:
+            pass
         return settings
 
     def load_settings(self, settings: dict):
@@ -1353,6 +1373,14 @@ class MqttPanel(ttk.LabelFrame):
             self._sub_topic_var.set(settings['sub_topic'])
         if 'sub_qos' in settings:
             self._sub_qos_var.set(settings['sub_qos'])
+
+        # 恢复 Notebook 标签页
+        tab_index = settings.get('notebook_tab')
+        if tab_index is not None:
+            try:
+                self._notebook.select(int(tab_index))
+            except Exception:
+                pass
 
         # 恢复订阅列表
         saved_subs = settings.get('saved_subscriptions', {})

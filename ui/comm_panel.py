@@ -221,8 +221,8 @@ class CommPanel(ttk.LabelFrame):
         self._conn_tree.column('#0', width=24, minwidth=24, stretch=False)
         self._conn_tree.column('send', width=40, minwidth=35, anchor=tk.CENTER, stretch=False)
         self._conn_tree.column('recv', width=40, minwidth=35, anchor=tk.CENTER, stretch=False)
-        self._conn_tree.column('type', width=80, minwidth=60, anchor=tk.W)
-        self._conn_tree.column('addr', width=120, minwidth=80, anchor=tk.W)
+        self._conn_tree.column('type', width=80, minwidth=60, anchor=tk.W, stretch=True)
+        self._conn_tree.column('addr', width=120, minwidth=80, anchor=tk.W, stretch=True)
         self._conn_tree.column('status', width=90, minwidth=70, anchor=tk.CENTER)
         self._conn_tree.column('tx', width=50, minwidth=40, anchor=tk.CENTER)
         self._conn_tree.column('rx', width=50, minwidth=40, anchor=tk.CENTER)
@@ -245,6 +245,7 @@ class CommPanel(ttk.LabelFrame):
         self._conn_menu = tk.Menu(self._conn_tree, tearoff=0)
         self._conn_menu.add_command(label='断开选中', command=self._disconnect_selected)
         self._conn_tree.bind('<Button-3>', self._show_conn_menu)
+        self._conn_tree.bind('<Motion>', self._on_tree_motion)
 
         # --- 快捷操作按钮 ---
         btn_frame = ttk.Frame(self)
@@ -274,9 +275,23 @@ class CommPanel(ttk.LabelFrame):
         finally:
             self._conn_menu.grab_release()
 
-    def _on_tree_click(self, event):
-        """点击表格 - 切换发送/接收开关"""
+    def _on_tree_motion(self, event):
+        """鼠标移动 - 发送/接收列显示手型光标"""
         region = self._conn_tree.identify_region(event.x, event.y)
+        if region == 'cell':
+            column = self._conn_tree.identify_column(event.x)
+            col_idx = int(column.replace('#', '')) - 1
+            if col_idx in (0, 1):  # 发送/接收列
+                self._conn_tree.configure(cursor='hand2')
+                return
+        self._conn_tree.configure(cursor='')
+
+    def _on_tree_click(self, event):
+        """点击表格 - 切换发送/接收开关，或检测列宽调整"""
+        region = self._conn_tree.identify_region(event.x, event.y)
+        if region == 'separator':
+            self._save_column_widths()
+            return
         if region != 'cell':
             return
         column = self._conn_tree.identify_column(event.x)
@@ -289,6 +304,20 @@ class CommPanel(ttk.LabelFrame):
             self._toggle_switch(item, 'send')
         elif col_idx == 1:  # 接收列
             self._toggle_switch(item, 'recv')
+
+    # 列宽变化回调（由 main_window 设置，用于触发配置保存）
+    _on_column_widths_changed = None
+
+    def _save_column_widths(self):
+        """用户拖拽列宽后保存当前列宽"""
+        widths = {}
+        for col in ('send', 'recv', 'type', 'addr', 'status', 'tx', 'rx'):
+            try:
+                widths[col] = self._conn_tree.column(col, 'width')
+            except Exception:
+                pass
+        if self._on_column_widths_changed and hasattr(self._on_column_widths_changed, '__call__'):
+            self._on_column_widths_changed(widths)
 
     def _toggle_switch(self, item_id: str, switch_type: str):
         """切换指定行的发送/接收开关（支持父子联动）"""
@@ -858,12 +887,22 @@ class CommPanel(ttk.LabelFrame):
                 display_proto = proto
                 addr = info.get('addr', '')
             
+            # 按协议类型选择颜色标签
+            connected = '监听' in info['status'] or '已连接' in info['status']
+            is_connected_norm = info['status'] not in ('已断开', '未连接')
+            if not connected and not is_connected_norm:
+                proto_tag = 'tag_disconnected'
+            else:
+                base_proto = display_proto.split(' ')[0]  # "TCP客户端" → "TCP客户端"
+                proto_tag = f'tag_{base_proto}'
+                if proto_tag not in ('tag_TCP客户端', 'tag_TCP服务端', 'tag_串口', 'tag_UDP', 'tag_WebSocket'):
+                    proto_tag = 'proto'
             item_id = self._conn_tree.insert('', tk.END,
                 text='●',
                 values=('☑', '☑', display_proto, addr,
                        status_text,
                        str(info['tx']), str(info['rx'])),
-                tags=('proto',))
+                tags=('proto', proto_tag))
             
             # 恢复或默认开关状态
             key = (proto, None)
@@ -905,12 +944,26 @@ class CommPanel(ttk.LabelFrame):
         self._conn_tree.tag_configure('proto', font=('', 9))
         self._conn_tree.tag_configure('client', font=('', 9))
         self._conn_tree.tag_configure('empty', foreground='gray')
+        # 按协议类型着色
+        self._conn_tree.tag_configure('tag_TCP客户端', foreground='#1565C0')
+        self._conn_tree.tag_configure('tag_TCP服务端', foreground='#2E7D32')
+        self._conn_tree.tag_configure('tag_串口', foreground='#E65100')
+        self._conn_tree.tag_configure('tag_UDP', foreground='#6A1B9A')
+        self._conn_tree.tag_configure('tag_WebSocket', foreground='#00838F')
+        self._conn_tree.tag_configure('tag_disconnected', foreground='#999999')
         
         # 刷新后更新清空按钮状态
         if not self._connections:
             self.clear_btn.configure(state=tk.DISABLED)
         else:
             self.clear_btn.configure(state=tk.NORMAL)
+
+        # 动态调整表格高度（最小3行，最大8行）
+        row_count = max(1, len(self._conn_tree.get_children()))
+        new_height = max(3, min(8, row_count + 1))
+        current_height = self._conn_tree.cget('height')
+        if current_height != new_height:
+            self._conn_tree.configure(height=new_height)
 
     def get_selected_client_key(self) -> str:
         """获取当前选中的客户端key（用于发送目标）"""
@@ -1022,6 +1075,13 @@ class CommPanel(ttk.LabelFrame):
 
     def get_settings(self) -> dict:
         """获取所有设置用于保存"""
+        # 保存当前列宽
+        col_widths = {}
+        for col in ('send', 'recv', 'type', 'addr', 'status', 'tx', 'rx'):
+            try:
+                col_widths[col] = self._conn_tree.column(col, 'width')
+            except Exception:
+                pass
         return {
             'protocol': self.proto_var.get(),
             'ip': self.ip_var.get(),
@@ -1032,6 +1092,7 @@ class CommPanel(ttk.LabelFrame):
             'databits': self.databits_var.get(),
             'parity': self.parity_var.get(),
             'stopbits': self.stopbits_var.get(),
+            'column_widths': col_widths,
         }
 
     def get_connections_save_data(self) -> list:
@@ -1130,3 +1191,11 @@ class CommPanel(ttk.LabelFrame):
         self.parity_var.set(settings.get('parity', 'N'))
         self.stopbits_var.set(settings.get('stopbits', '1'))
         self._on_protocol_change()
+
+        # 恢复列宽
+        col_widths = settings.get('column_widths', {})
+        for col, width in col_widths.items():
+            try:
+                self._conn_tree.column(col, width=width)
+            except Exception:
+                pass

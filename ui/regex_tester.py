@@ -4,6 +4,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import re
 from utils.context_menu import add_entry_context_menu
+from ui.theme import get_theme
 
 
 class RegexTester(ttk.LabelFrame):
@@ -192,8 +193,12 @@ class RegexTester(ttk.LabelFrame):
                 return
 
             # 配置高亮标签
-            self.test_text.tag_configure('match', background='#FFFF00', foreground='#000000')
-            self.test_text.tag_configure('match_sel', background='#FFA500', foreground='#000000')
+            self.test_text.tag_configure('match',
+                                         background=get_theme().color('search_highlight_bg'),
+                                         foreground=get_theme().color('search_highlight_fg'))
+            self.test_text.tag_configure('match_sel',
+                                         background=get_theme().color('search_current_bg'),
+                                         foreground=get_theme().color('search_current_fg'))
 
             # 插入结果
             for i, m in enumerate(matches):

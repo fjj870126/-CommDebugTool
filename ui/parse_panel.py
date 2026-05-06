@@ -33,7 +33,7 @@ class ParsePanel(ttk.LabelFrame):
     """协议解析面板 - 支持多协议加载 + JSON 自动识别解析"""
 
     def __init__(self, parent, on_send=None, log_panel=None):
-        super().__init__(parent, text=' 协议解析结果 ', padding=6)
+        super().__init__(parent, text=' 协议解析结果 ', padding=8)
         self._on_send = on_send
         self._log_panel = log_panel
         self._protocols: list[ProtocolEntry] = []

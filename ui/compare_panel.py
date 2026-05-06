@@ -4,6 +4,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from utils.hex_utils import hex_str_to_bytes, bytes_to_hex_str
 from utils.context_menu import add_entry_context_menu
+from ui.theme import get_theme
 
 
 class ComparePanel(ttk.LabelFrame):
@@ -86,9 +87,10 @@ class ComparePanel(ttk.LabelFrame):
         self.result_text.delete('1.0', tk.END)
 
         # 配置标签
-        self.result_text.tag_configure('diff', foreground='red', background='#FFE0E0')
-        self.result_text.tag_configure('same', foreground='green')
-        self.result_text.tag_configure('missing', foreground='gray')
+        self.result_text.tag_configure('diff', foreground=get_theme().color('diff_fg'),
+                                         background=get_theme().color('diff_bg'))
+        self.result_text.tag_configure('same', foreground=get_theme().color('same_fg'))
+        self.result_text.tag_configure('missing', foreground=get_theme().color('missing_fg'))
         self.result_text.tag_configure('header', font=('Courier New', 10, 'bold'))
 
         if mode == '逐字节':

@@ -50,8 +50,9 @@ class ScriptPanel(ttk.LabelFrame):
         theme.configure_text_widget(self.editor, 'monospace_large')
         
         # 行号
-        line_numbers = tk.Text(editor_frame, font=('Menlo', 11), width=4,
-                               bg='#252526', fg='#858585', padx=4, state=tk.DISABLED)
+        line_numbers = tk.Text(editor_frame, font=theme.font('monospace_large'), width=4,
+                               bg=theme.color('line_no_bg'), fg=theme.color('line_no_fg'),
+                               padx=4, state=tk.DISABLED)
         
         h_scroll = ttk.Scrollbar(editor_frame, orient=tk.HORIZONTAL, command=self.editor.xview)
         v_scroll = ttk.Scrollbar(editor_frame, orient=tk.VERTICAL, command=self.editor.yview)

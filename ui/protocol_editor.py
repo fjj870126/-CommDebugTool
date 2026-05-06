@@ -8,6 +8,7 @@ from tkinter import ttk, messagebox, filedialog
 from utils.context_menu import add_entry_context_menu, add_combobox_context_menu
 from utils.hex_utils import hex_str_to_bytes, bytes_to_hex_str
 from packet.checksum import calc_checksum, get_algorithm_names
+from ui.theme import get_theme
 from protocols import PRESET_TEMPLATES
 
 
@@ -32,7 +33,8 @@ class ToolTip:
         tw.wm_overrideredirect(True)
         tw.wm_geometry(f'+{x}+{y}')
         label = tk.Label(tw, text=display_text, justify=tk.LEFT,
-                         background='#FFFFDD', foreground='#333333',
+                         background=get_theme().color('tooltip_bg'),
+                         foreground=get_theme().color('tooltip_fg'),
                          relief=tk.SOLID, borderwidth=1,
                          font=('Courier New', 9), padx=8, pady=4,
                          wraplength=600)
@@ -786,7 +788,7 @@ class ProtocolEditor(ttk.LabelFrame):
     """协议编辑器 - 合并模板库 + 组包 + 解析"""
 
     def __init__(self, parent, on_send=None, log_panel=None, parse_panel=None):
-        super().__init__(parent, text=' 协议编辑器 ', padding=6)
+        super().__init__(parent, text=' 协议编辑器 ', padding=8)
         self._on_send = on_send
         self._log_panel = log_panel
         self._parse_panel = parse_panel

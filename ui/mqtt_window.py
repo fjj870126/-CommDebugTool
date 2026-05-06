@@ -22,13 +22,13 @@ class MqttWindow(tk.Toplevel):
         self._main_paned = ttk.PanedWindow(self, orient=tk.HORIZONTAL)
         self._main_paned.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
 
-        # 左侧：控制面板（连接配置、发布、订阅、转发等）- 占 50%
+        # 左侧：控制面板（连接配置、发布、订阅、转发等）- 占 45%
         left_frame = ttk.Frame(self._main_paned)
-        self._main_paned.add(left_frame, weight=50)
+        self._main_paned.add(left_frame, weight=45)
 
-        # 右侧：消息列表 - 占 50%
+        # 右侧：消息列表 - 占 55%
         right_frame = ttk.Frame(self._main_paned)
-        self._main_paned.add(right_frame, weight=50)
+        self._main_paned.add(right_frame, weight=55)
 
         # 创建 MQTT 面板（左侧控制区）
         self._panel = MqttPanel(left_frame, on_send=on_send, log_panel=log_panel)
@@ -38,7 +38,7 @@ class MqttWindow(tk.Toplevel):
         # 创建消息列表面板（右侧）
         self._build_message_panel(right_frame)
 
-        # 延迟设置默认分割位置（左侧约50%），等待窗口布局完成
+        # 延迟设置默认分割位置（左侧约45%），等待窗口布局完成
         self.after(100, lambda: self._set_initial_sash(self._main_paned))
 
         # 居中后显示
@@ -58,7 +58,7 @@ class MqttWindow(tk.Toplevel):
         self._closed = False
 
     def _set_initial_sash(self, paned, ratio=None):
-        """设置初始分割位置（左侧约50%，或使用指定比例）"""
+        """设置初始分割位置（左侧约45%，或使用指定比例）"""
         try:
             self.update_idletasks()
             total_width = paned.winfo_width()
@@ -66,7 +66,7 @@ class MqttWindow(tk.Toplevel):
                 if ratio is not None and 0 < ratio < 1:
                     paned.sashpos(0, int(total_width * ratio))
                 else:
-                    paned.sashpos(0, int(total_width * 0.50))
+                    paned.sashpos(0, int(total_width * 0.45))
         except Exception:
             pass
 
@@ -185,7 +185,7 @@ class MqttWindow(tk.Toplevel):
         if sash_ratio is not None and 0 < sash_ratio < 1:
             self.after(200, lambda: self._set_initial_sash(self._main_paned, sash_ratio))
         else:
-            # 没有保存的比例时，使用默认比例（左侧约50%）
+            # 没有保存的比例时，使用默认比例（左侧约45%）
             self.after(200, lambda: self._set_initial_sash(self._main_paned))
 
     def get_settings(self) -> dict:

@@ -49,7 +49,8 @@ class WaveformPanel(ttk.LabelFrame):
         canvas_frame.pack(fill=tk.BOTH, expand=True)
 
         self.canvas = tk.Canvas(canvas_frame, height=150,
-                                highlightthickness=1, highlightbackground='#555',
+                                highlightthickness=1,
+                                highlightbackground=get_theme().color('waveform_border'),
                                 bg=get_theme().color('bg'))
         self.canvas.pack(fill=tk.BOTH, expand=True)
         self.canvas.bind('<Configure>', self._on_resize)
@@ -165,7 +166,7 @@ class WaveformPanel(ttk.LabelFrame):
         draw_height = height - margin * 2
 
         # 水平网格线
-        grid_color = '#333'
+        grid_color = get_theme().color('waveform_grid')
         for i in range(5):
             y = margin + (i / 4) * draw_height
             self.canvas.create_line(margin, y, width - margin, y,
@@ -173,7 +174,8 @@ class WaveformPanel(ttk.LabelFrame):
             # 刻度值
             val = self._max_value - (i / 4) * (self._max_value - self._min_value)
             self.canvas.create_text(margin - 4, y, text=str(int(val)),
-                                    anchor=tk.E, fill='#888', font=('', 8), tags='grid')
+                                    anchor=tk.E, fill=get_theme().color('waveform_grid_text'),
+                                    font=('', 8), tags='grid')
 
         # 垂直网格线
         for i in range(9):
@@ -183,7 +185,7 @@ class WaveformPanel(ttk.LabelFrame):
 
         # 边框
         self.canvas.create_rectangle(margin, margin, width - margin, height - margin,
-                                     outline='#555', tags='grid')
+                                     outline=get_theme().color('waveform_border'), tags='grid')
 
     def _clear(self):
         """清空数据"""
